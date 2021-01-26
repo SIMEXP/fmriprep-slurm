@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import os
 import sys
 import argparse
@@ -5,7 +7,9 @@ import bids
 import subprocess
 import json
 import re
+import fnmatch
 import pathlib
+import templateflow.api as tf_api
 
 script_dir = os.path.dirname(__file__)
 
@@ -16,15 +20,12 @@ SMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "24:00:00", "omp_nthrea
 FMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "12:00:00", "omp_nthreads": 8}
 
 FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
-FMRIPREP_DEFAULT_SINGULARITY_PATH = os.path.abspath(
-    os.path.join(script_dir, f"../../containers/{FMRIPREP_DEFAULT_VERSION}.sif")
-)
+FMRIPREP_DEFAULT_SINGULARITY_FOLDER= f"$HOME/projects/rrg-pbellec/containers/"
 BIDS_FILTERS_FILE = os.path.join(script_dir, "bids_filters.json")
 TEMPLATEFLOW_HOME = os.path.join(
     os.environ.get("SCRATCH", os.path.join(os.environ["HOME"], ".cache")),
     "templateflow",
 )
-OUTPUT_TEMPLATES = ["MNI152NLin2009cAsym", "MNI152NLin6Asym"]
 SINGULARITY_CMD_BASE = " ".join(
     [
         "singularity run",
@@ -44,10 +45,10 @@ slurm_preamble = """#!/bin/bash
 #SBATCH --time={time}
 #SBATCH --cpus-per-task={cpus}
 #SBATCH --mem-per-cpu={mem_per_cpu}M
+#SBATCH --mail-user={email}
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
-#SBATCH --mail-user={email}
 
 export SINGULARITYENV_FS_LICENSE=$HOME/.freesurfer.txt
 export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
@@ -58,9 +59,6 @@ def load_bidsignore(bids_root):
     """Load .bidsignore file from a BIDS dataset, returns list of regexps"""
     bids_ignore_path = bids_root / ".bidsignore"
     if bids_ignore_path.exists():
-        import re
-        import fnmatch
-
         bids_ignores = bids_ignore_path.read_text().splitlines()
         return tuple(
             [
@@ -101,13 +99,15 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         layout.root,
         SLURM_JOB_DIR,
         "bids_filters.json")
-    bids_filters = json.load(open(BIDS_FILTERS_FILE))
-    with open(bids_filters_path, 'w') as f:
-        json.dump(bids_filters, f)
+
+    if os.path.exists(bids_filters_path):
+        bids_filters = json.load(open(BIDS_FILTERS_FILE))
+        with open(bids_filters_path, 'w') as f:
+            json.dump(bids_filters, f)
 
     pybids_cache_path = os.path.join(layout.root, PYBIDS_CACHE_PATH)
 
-    fmriprep_singularity_path = args.container or FMRIPREP_DEFAULT_SINGULARITY_PATH
+    fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
@@ -121,10 +121,17 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     "-w /work",
                     f"--participant-label {subject}",
                     "--anat-only" if anat_only else "",
-                    f"--bids-database-dir {pybids_cache_path}",
-                    f"--bids-filter-file {bids_filters_path}",
-                    "--output-spaces",
-                    " ".join(OUTPUT_TEMPLATES),
+                    f"--bids-database-dir {pybids_cache_path}"
+                ]
+            )
+        )
+        if os.path.exists(bids_filters_path):
+            f.write(f" --bids-filter-file {bids_filters_path} ")
+        f.write(
+            " ".join(
+                [
+                    " --output-spaces",
+                    *args.output_spaces,
                     "--cifti-output 91k",
                     "--skip_bids_validation",
                     "--write-graph",
@@ -166,7 +173,7 @@ def write_func_job(layout, subject, session, args):
             if ent in entities
         ]
         preproc_entities = entities + [
-            ("space", OUTPUT_TEMPLATES[0]),
+            ("space", args.out_spaces[0]),
             ("desc", "preproc"),
         ]
         dtseries_entities = entities + [("space", "fsLR"), ("den", "91k")]
@@ -226,13 +233,14 @@ def write_func_job(layout, subject, session, args):
 
     pybids_cache_path = os.path.join(layout.root, PYBIDS_CACHE_PATH)
 
-    # filter for session
-    bids_filters = json.load(open(BIDS_FILTERS_FILE))
-    bids_filters["bold"].update({"session": session})
-    with open(bids_filters_path, "w") as f:
-        json.dump(bids_filters, f)
+    if os.path.exists(bids_filters_path):
+        # filter for session
+        bids_filters = json.load(open(BIDS_FILTERS_FILE))
+        bids_filters["bold"].update({"session": session})
+        with open(bids_filters_path, "w") as f:
+            json.dump(bids_filters, f)
 
-    fmriprep_singularity_path = args.container or FMRIPREP_DEFAULT_SINGULARITY_PATH
+    fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
@@ -247,12 +255,19 @@ def write_func_job(layout, subject, session, args):
                     f"--participant-label {subject}",
                     "--anat-derivatives /anat/fmriprep",
                     "--fs-subjects-dir /anat/freesurfer",
-                    f"--bids-database-dir {pybids_cache_path}",
-                    f"--bids-filter-file {bids_filters_path}",
-                    "--ignore slicetiming",
+                    f"--bids-database-dir {pybids_cache_path}"
+                ]
+            )
+        )
+        if os.path.exists(bids_filters_path):
+            f.write(f" --bids-filter-file {bids_filters_path} ")
+        f.write(
+            " ".join(
+                [
+                    " --ignore slicetiming",
                     "--use-syn-sdc",
                     "--output-spaces",
-                    *OUTPUT_TEMPLATES,
+                    *args.output_spaces,
                     "--cifti-output 91k",
                     "--notrack",
                     "--write-graph",
@@ -277,58 +292,6 @@ def write_func_job(layout, subject, session, args):
 def submit_slurm_job(job_path):
     return subprocess.run(["sbatch", job_path])
 
-
-def parse_args():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawTextHelpFormatter,
-        description="submit smriprep jobs",
-    )
-    parser.add_argument(
-        "bids_path", type=pathlib.Path, help="BIDS folder to run smriprep on."
-    )
-    parser.add_argument(
-        "derivatives_name",
-        type=pathlib.Path,
-        help="name of the output folder in derivatives.",
-    )
-    parser.add_argument("preproc", help="anat or func")
-    parser.add_argument(
-        "--slurm-account",
-        action="store",
-        default="rrg-pbellec",
-        help="SLURM account for job submission",
-    )
-    parser.add_argument("--email", action="store", help="email for SLURM notifications")
-    parser.add_argument(
-        "--container", action="store", help="fmriprep singularity container"
-    )
-    parser.add_argument(
-        "--participant-label",
-        action="store",
-        nargs="+",
-        help="a space delimited list of participant identifiers or a single "
-        "identifier (the sub- prefix can be removed)",
-    )
-    parser.add_argument(
-        "--session-label",
-        action="store",
-        nargs="+",
-        help="a space delimited list of session identifiers or a single "
-        "identifier (the ses- prefix can be removed)",
-    )
-    parser.add_argument(
-        "--force-reindex",
-        action="store_true",
-        help="Force pyBIDS reset_database and reindexing",
-    )
-    parser.add_argument(
-        "--no-submit",
-        action="store_true",
-        help="Generate scripts, do not submit SLURM jobs, for testing.",
-    )
-    return parser.parse_args()
-
-
 def run_fmriprep(layout, args, pipe="all"):
 
     subjects = args.participant_label
@@ -343,7 +306,7 @@ def run_fmriprep(layout, args, pipe="all"):
 
         if pipe == "func":
             for session in sessions:
-                # if TODO: check if derivative already exists for that subject
+                # TODO: check if derivative already exists for that subject
                 job_path, outputs_exist = write_func_job(layout, subject, session, args)
                 if outputs_exist:
                     print(
@@ -356,6 +319,71 @@ def run_fmriprep(layout, args, pipe="all"):
         elif pipe == "all":
             yield write_fmriprep_job(layout, subject, args, anat_only=False)
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawTextHelpFormatter,
+        description="create fmriprep jobs scripts",
+    )
+    parser.add_argument(
+        "bids_path", type=pathlib.Path, help="BIDS folder to run fmriprep on."
+    )
+    parser.add_argument(
+        "derivatives_name",
+        type=pathlib.Path,
+        help="name of the output folder in derivatives.",
+    )
+    parser.add_argument(
+        "--preproc", 
+        default="all",
+        help="anat, func or all (def: all)")
+    parser.add_argument(
+        "--slurm-account",
+        action="store",
+        default="rrg-pbellec",
+        help="SLURM account for job submission (def: rrg-pbellec)",
+    )
+    parser.add_argument(
+        "--email",
+        action="store",
+        help="email for SLURM notifications")
+    parser.add_argument(
+        "--container",
+        action="store",
+        default=FMRIPREP_DEFAULT_VERSION,
+        help="fmriprep singularity container (def: fmriprep-20.2.1lts)"
+    )
+    parser.add_argument(
+        "--participant-label",
+        action="store",
+        nargs="+",
+        help="a space delimited list of participant identifiers or a single "
+        "identifier (the sub- prefix can be removed)",
+    )
+    parser.add_argument(
+        "--output-spaces",
+        action="store",
+        nargs="+",
+        default=["MNI152NLin2009cAsym", "MNI152NLin6Asym"],
+        help="a space delimited list of templates as defined by templateflow (def: [\"MNI152NLin2009cAsym\", \"MNI152NLin6Asym\"])",
+    )
+    parser.add_argument(
+        "--session-label",
+        action="store",
+        nargs="+",
+        help="a space delimited list of session identifiers or a single "
+        "identifier (the ses- prefix can be removed)",
+    )
+    parser.add_argument(
+        "--force-reindex",
+        action="store_true",
+        help="Force pyBIDS reset_database and reindexing",
+    )
+    parser.add_argument(
+        "--submit",
+        action="store_true",
+        help="Submit SLURM jobs",
+    )
+    return parser.parse_args()
 
 def main():
 
@@ -388,12 +416,10 @@ def main():
 
     # prefectch templateflow templates
     os.environ["TEMPLATEFLOW_HOME"] = TEMPLATEFLOW_HOME
-    import templateflow.api as tf_api
-
-    tf_api.get(OUTPUT_TEMPLATES + ["OASIS30ANTs", "fsLR", "fsaverage"])
+    tf_api.get(args.output_spaces + ["OASIS30ANTs", "fsLR", "fsaverage"])
 
     for job_file in run_fmriprep(layout, args, args.preproc):
-        if not args.no_submit:
+        if args.submit:
             submit_slurm_job(job_file)
 
 
