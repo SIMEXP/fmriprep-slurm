@@ -1,0 +1,3 @@
+* copy input data into $SLURM_TMPDIR
+* submit a sample script (one subject) to check the approximate required time to pre-process everything.
+This should also give an idea of the overall hardware usage of the process.
