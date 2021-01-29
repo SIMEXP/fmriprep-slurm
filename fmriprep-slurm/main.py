@@ -19,13 +19,11 @@ SLURM_JOB_DIR = ".slurm"
 SMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "24:00:00", "omp_nthreads": 8}
 FMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "12:00:00", "omp_nthreads": 8}
 
+SINGULARITY_DATA_PATH = "/data"
 FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
 FMRIPREP_DEFAULT_SINGULARITY_FOLDER= f"$HOME/projects/rrg-pbellec/containers/"
 BIDS_FILTERS_FILE = os.path.join(script_dir, "bids_filters.json")
-TEMPLATEFLOW_HOME = os.path.join(
-    os.environ.get(os.path.join("SCRATCH", ".cache"), os.path.join(os.environ["HOME"], ".cache")),
-    "templateflow",
-)
+TEMPLATEFLOW_HOME = os.path.join(os.path.join(os.environ["HOME"], ".cache"), "templateflow",)
 SINGULARITY_CMD_BASE = " ".join(
     [
         "singularity run",
@@ -52,6 +50,12 @@ slurm_preamble = """#!/bin/bash
 
 export SINGULARITYENV_FS_LICENSE=$HOME/.freesurfer.txt
 export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
+
+module load singularity/3.6
+
+#copying input dataset into local scratch space
+scp -r {bids_root} $SLURM_TMPDIR
+
 """
 
 
@@ -70,14 +74,19 @@ def load_bidsignore(bids_root):
     return tuple()
 
 
-def write_job_footer(fd, jobname):
+def write_job_footer(fd, jobname, bids_path):
     fd.write("fmriprep_exitcode=$?\n")
+    input_dir = os.path.join(bids_path, "derivatives")
+    out_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(bids_path), "derivatives", "fmriprep")
     # TODO: copy resource monitor output
     fd.write(
         f"cp $SLURM_TMPDIR/fmriprep_wf/resource_monitor.json /scratch/{os.environ['USER']}/{jobname}_resource_monitor.json \n"
     )
     fd.write(
         f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R $SLURM_TMPDIR /scratch/{os.environ['USER']}/{jobname}.workdir ; fi \n"
+    )
+    fd.write(
+        f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {out_dir} {input_dir} ; fi \n"
     )
     fd.write("exit $fmriprep_exitcode \n")
 
@@ -92,7 +101,9 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     job_specs.update(SMRIPREP_REQ)
     job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
 
-    derivatives_path = os.path.join(layout.root, "derivatives", args.derivatives_name)
+    derivatives_path = os.path.join(SINGULARITY_DATA_PATH, "derivatives", args.derivatives_name)
+
+    input_data_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(layout.root))
 
     # use json load/dump to copy filters (and validate json in the meantime)
     bids_filters_path = os.path.join(
@@ -111,12 +122,11 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
-
         f.write(
             " ".join(
                 [
                     SINGULARITY_CMD_BASE,
-                    f"-B {layout.root}:{layout.root}",
+                    f"-B {input_data_dir}:{SINGULARITY_DATA_PATH}",
                     fmriprep_singularity_path,
                     "-w /work",
                     f"--participant-label {subject}",
@@ -138,14 +148,14 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
                     f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
-                    layout.root,
+                    SINGULARITY_DATA_PATH,
                     derivatives_path,
                     "participant",
                     "\n",
                 ]
             )
         )
-        write_job_footer(f, job_specs["jobname"])
+        write_job_footer(f, job_specs["jobname"], layout.root)
     return job_path
 
 
@@ -158,7 +168,9 @@ def write_func_job(layout, subject, session, args):
         "derivatives",
         args.derivatives_name,
     )
-    derivatives_path = os.path.join(layout.root, "derivatives", args.derivatives_name)
+    derivatives_path = os.path.join(SINGULARITY_DATA_PATH, "derivatives", args.derivatives_name)
+
+    input_data_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(layout.root))
 
     bold_runs = layout.get(
         subject=subject, session=session, extension=[".nii", ".nii.gz"], suffix="bold"
@@ -248,7 +260,7 @@ def write_func_job(layout, subject, session, args):
             " ".join(
                 [
                     SINGULARITY_CMD_BASE,
-                    f"-B {layout.root}:{layout.root}",
+                    f"-B {input_data_dir}:{SINGULARITY_DATA_PATH}",
                     f"-B {anat_path}:/anat",
                     fmriprep_singularity_path,
                     "-w /work",
@@ -277,14 +289,14 @@ def write_func_job(layout, subject, session, args):
                     f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
                     # monitor resources to design a heuristic for runtime/cpu/ram of func data
                     "--resource-monitor",
-                    layout.root,
+                    SINGULARITY_DATA_PATH,
                     derivatives_path,
                     "participant",
                     "\n",
                 ]
             )
         )
-        write_job_footer(f, job_specs["jobname"])
+        write_job_footer(f, job_specs["jobname"], layout.root)
 
     return job_path, outputs_exist
 
