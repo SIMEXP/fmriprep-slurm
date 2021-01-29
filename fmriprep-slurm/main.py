@@ -23,7 +23,7 @@ FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
 FMRIPREP_DEFAULT_SINGULARITY_FOLDER= f"$HOME/projects/rrg-pbellec/containers/"
 BIDS_FILTERS_FILE = os.path.join(script_dir, "bids_filters.json")
 TEMPLATEFLOW_HOME = os.path.join(
-    os.environ.get("SCRATCH", os.path.join(os.environ["HOME"], ".cache")),
+    os.environ.get(os.path.join("SCRATCH", ".cache"), os.path.join(os.environ["HOME"], ".cache")),
     "templateflow",
 )
 SINGULARITY_CMD_BASE = " ".join(
