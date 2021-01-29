@@ -1,3 +1,4 @@
-* copy input data into $SLURM_TMPDIR
+* better management of anat vs func data
 * submit a sample script (one subject) to check the approximate required time to pre-process everything.
 This should also give an idea of the overall hardware usage of the process.
+* copy input dataset into $SLURM_TMPDIR, to speed-up read access
