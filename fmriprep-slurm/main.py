@@ -19,7 +19,7 @@ SLURM_JOB_DIR = ".slurm"
 SMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "24:00:00", "omp_nthreads": 8}
 FMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "12:00:00", "omp_nthreads": 8}
 
-SINGULARITY_DATA_PATH = "/data"
+SINGULARITY_DATA_PATH = "/DATA"
 FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
 FMRIPREP_DEFAULT_SINGULARITY_FOLDER= f"$HOME/projects/rrg-pbellec/containers/"
 BIDS_FILTERS_FILE = os.path.join(script_dir, "bids_filters.json")
@@ -28,8 +28,7 @@ SINGULARITY_CMD_BASE = " ".join(
     [
         "singularity run",
         "--cleanenv",
-        "-B $SLURM_TMPDIR:/work",  # use SLURM_TMPDIR to overcome scratch file number limit
-        # f"-B /scratch/{os.environ['USER']}:/work",
+        f"-B $SLURM_TMPDIR:{SINGULARITY_DATA_PATH}",  # use SLURM_TMPDIR to overcome scratch file number limit
         f"-B {TEMPLATEFLOW_HOME}:/templateflow",
         "-B /etc/pki:/etc/pki/",
     ]
@@ -101,9 +100,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     job_specs.update(SMRIPREP_REQ)
     job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
 
-    derivatives_path = os.path.join(SINGULARITY_DATA_PATH, "derivatives", args.derivatives_name)
-
-    input_data_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(layout.root))
+    derivatives_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), "derivatives", args.derivatives_name)
 
     # use json load/dump to copy filters (and validate json in the meantime)
     bids_filters_path = os.path.join(
@@ -116,9 +113,8 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         with open(bids_filters_path, 'w') as f:
             json.dump(bids_filters, f)
 
-    pybids_cache_path = os.path.join(layout.root, PYBIDS_CACHE_PATH)
-
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
+    sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
@@ -126,12 +122,11 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
             " ".join(
                 [
                     SINGULARITY_CMD_BASE,
-                    f"-B {input_data_dir}:{SINGULARITY_DATA_PATH}",
                     fmriprep_singularity_path,
-                    "-w /work",
+                    f"-w {SINGULARITY_DATA_PATH}",
                     f"--participant-label {subject}",
                     "--anat-only" if anat_only else "",
-                    f"--bids-database-dir {pybids_cache_path}"
+                    f"--bids-database-dir {sing_pybids_cache_path}"
                 ]
             )
         )
@@ -168,9 +163,7 @@ def write_func_job(layout, subject, session, args):
         "derivatives",
         args.derivatives_name,
     )
-    derivatives_path = os.path.join(SINGULARITY_DATA_PATH, "derivatives", args.derivatives_name)
-
-    input_data_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(layout.root))
+    derivatives_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), "derivatives", args.derivatives_name)
 
     bold_runs = layout.get(
         subject=subject, session=session, extension=[".nii", ".nii.gz"], suffix="bold"
@@ -243,8 +236,6 @@ def write_func_job(layout, subject, session, args):
         f"{job_specs['jobname']}_bids_filters.json"
     )
 
-    pybids_cache_path = os.path.join(layout.root, PYBIDS_CACHE_PATH)
-
     if os.path.exists(bids_filters_path):
         # filter for session
         bids_filters = json.load(open(BIDS_FILTERS_FILE))
@@ -253,6 +244,7 @@ def write_func_job(layout, subject, session, args):
             json.dump(bids_filters, f)
 
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
+    sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
@@ -260,14 +252,13 @@ def write_func_job(layout, subject, session, args):
             " ".join(
                 [
                     SINGULARITY_CMD_BASE,
-                    f"-B {input_data_dir}:{SINGULARITY_DATA_PATH}",
                     f"-B {anat_path}:/anat",
                     fmriprep_singularity_path,
-                    "-w /work",
+                    f"-w {SINGULARITY_DATA_PATH}",
                     f"--participant-label {subject}",
                     "--anat-derivatives /anat/fmriprep",
                     "--fs-subjects-dir /anat/freesurfer",
-                    f"--bids-database-dir {pybids_cache_path}"
+                    f"--bids-database-dir {sing_pybids_cache_path}"
                 ]
             )
         )
