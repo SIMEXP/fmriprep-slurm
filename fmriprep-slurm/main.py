@@ -138,6 +138,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     " --output-spaces",
                     *args.output_spaces,
                     "--cifti-output 91k",
+                    "--notrack",
                     "--skip_bids_validation",
                     "--write-graph",
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
@@ -178,7 +179,7 @@ def write_func_job(layout, subject, session, args):
             if ent in entities
         ]
         preproc_entities = entities + [
-            ("space", args.out_spaces[0]),
+            ("space", args.output_spaces[0]),
             ("desc", "preproc"),
         ]
         dtseries_entities = entities + [("space", "fsLR"), ("den", "91k")]
