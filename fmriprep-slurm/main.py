@@ -11,7 +11,7 @@ import fnmatch
 import pathlib
 import templateflow.api as tf_api
 
-script_dir = os.path.dirname(__file__)
+SCRIPT_DIR = os.path.dirname(__file__)
 
 PYBIDS_CACHE_PATH = ".pybids_cache"
 SLURM_JOB_DIR = ".slurm"
@@ -22,7 +22,6 @@ FMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "12:00:00", "omp_nthrea
 SINGULARITY_DATA_PATH = "/DATA"
 FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
 FMRIPREP_DEFAULT_SINGULARITY_FOLDER= f"$HOME/projects/rrg-pbellec/containers/"
-BIDS_FILTERS_FILE = os.path.join(script_dir, "bids_filters.json")
 TEMPLATEFLOW_HOME = os.path.join(os.path.join(os.environ["HOME"], ".cache"), "templateflow",)
 SINGULARITY_CMD_BASE = " ".join(
     [
@@ -56,6 +55,10 @@ module load singularity/3.6
 scp -r {bids_root} $SLURM_TMPDIR
 
 """
+
+BIDS_FILTERS = {"t1w": {"reconstruction": None, "acquisition": None, "session":["001", "002"]}
+                , "t2w": {"reconstruction": None, "acquisition": None, "session":["001", "002"]}
+                , "bold": {} }
 
 
 def load_bidsignore(bids_root):
@@ -108,10 +111,8 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         SLURM_JOB_DIR,
         "bids_filters.json")
 
-    if os.path.exists(bids_filters_path):
-        bids_filters = json.load(open(BIDS_FILTERS_FILE))
-        with open(bids_filters_path, 'w') as f:
-            json.dump(bids_filters, f)
+    with open(bids_filters_path, 'w') as f:
+        json.dump(BIDS_FILTERS, f)
 
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
@@ -126,15 +127,8 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     f"-w {SINGULARITY_DATA_PATH}",
                     f"--participant-label {subject}",
                     "--anat-only" if anat_only else "",
-                    f"--bids-database-dir {sing_pybids_cache_path}"
-                ]
-            )
-        )
-        if os.path.exists(bids_filters_path):
-            f.write(f" --bids-filter-file {bids_filters_path} ")
-        f.write(
-            " ".join(
-                [
+                    f"--bids-database-dir {sing_pybids_cache_path}",
+                    f" --bids-filter-file {bids_filters_path}",
                     " --output-spaces",
                     *args.output_spaces,
                     "--cifti-output 91k",
@@ -237,12 +231,10 @@ def write_func_job(layout, subject, session, args):
         f"{job_specs['jobname']}_bids_filters.json"
     )
 
-    if os.path.exists(bids_filters_path):
-        # filter for session
-        bids_filters = json.load(open(BIDS_FILTERS_FILE))
-        bids_filters["bold"].update({"session": session})
-        with open(bids_filters_path, "w") as f:
-            json.dump(bids_filters, f)
+    # filter for session
+    BIDS_FILTERS["bold"].update({"session": session})
+    with open(bids_filters_path, "w") as f:
+        json.dump(BIDS_FILTERS, f)
 
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
@@ -259,15 +251,8 @@ def write_func_job(layout, subject, session, args):
                     f"--participant-label {subject}",
                     "--anat-derivatives /anat/fmriprep",
                     "--fs-subjects-dir /anat/freesurfer",
-                    f"--bids-database-dir {sing_pybids_cache_path}"
-                ]
-            )
-        )
-        if os.path.exists(bids_filters_path):
-            f.write(f" --bids-filter-file {bids_filters_path} ")
-        f.write(
-            " ".join(
-                [
+                    f"--bids-database-dir {sing_pybids_cache_path}",
+                    f" --bids-filter-file {bids_filters_path}",
                     " --ignore slicetiming",
                     "--use-syn-sdc",
                     "--output-spaces",
