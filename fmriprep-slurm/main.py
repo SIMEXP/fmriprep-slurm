@@ -153,12 +153,16 @@ def write_func_job(layout, subject, session, args):
     outputs_exist = False
     study = os.path.basename(layout.root)
     anat_path = os.path.join(
-        os.path.dirname(layout.root),
+        SINGULARITY_DATA_PATH,
         "anat",
         "derivatives",
         args.derivatives_name,
     )
-    derivatives_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), "derivatives", args.derivatives_name)
+    derivatives_path = os.path.join(
+        SINGULARITY_DATA_PATH, 
+        os.path.basename(layout.root), 
+        "derivatives", 
+        args.derivatives_name)
 
     bold_runs = layout.get(
         subject=subject, session=session, extension=[".nii", ".nii.gz"], suffix="bold"
@@ -245,12 +249,11 @@ def write_func_job(layout, subject, session, args):
             " ".join(
                 [
                     SINGULARITY_CMD_BASE,
-                    f"-B {anat_path}:/anat",
                     fmriprep_singularity_path,
                     f"-w {SINGULARITY_DATA_PATH}",
                     f"--participant-label {subject}",
-                    "--anat-derivatives /anat/fmriprep",
-                    "--fs-subjects-dir /anat/freesurfer",
+                    f"--anat-derivatives {anat_path}/fmriprep",
+                    f"--fs-subjects-dir {anat_path}/freesurfer",
                     f"--bids-database-dir {sing_pybids_cache_path}",
                     f" --bids-filter-file {bids_filters_path}",
                     " --ignore slicetiming",
