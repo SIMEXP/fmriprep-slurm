@@ -100,6 +100,9 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         bids_root=layout.root,
     )
     job_specs.update(SMRIPREP_REQ)
+    if args.time:
+        job_specs.update({"time": args.time,})
+
     job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
 
     derivatives_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), "derivatives", args.derivatives_name)
@@ -111,8 +114,9 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         "bids_filters.json")
 
     # checking if bids_filter path provided by user is valid, if not default bids_filter is used
-    if os.path.exists(args.bids_filter):
-        bids_filters = json.load(open(args.bids_filter))
+    if args.bids_filter:
+        if os.path.exists(args.bids_filter):
+            bids_filters = json.load(open(args.bids_filter))
     else:
         bids_filters = BIDS_FILTERS
     with open(bids_filters_path, "w") as f:
@@ -233,6 +237,8 @@ def write_func_job(layout, subject, session, args):
         bids_root=layout.root,
     )
     job_specs.update(FMRIPREP_REQ)
+    if args.time:
+        job_specs.update({"time": args.time,})
 
     job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
     bids_filters_path = os.path.join(
@@ -242,8 +248,9 @@ def write_func_job(layout, subject, session, args):
     )
 
     # checking if bids_filter path provided by user is valid, if not default bids_filter is used
-    if os.path.exists(args.bids_filter):
-        bids_filters = json.load(open(args.bids_filter))
+    if args.bids_filter:
+        if os.path.exists(args.bids_filter):
+            bids_filters = json.load(open(args.bids_filter))
     else:
         bids_filters = BIDS_FILTERS
     # filter for session
@@ -336,9 +343,11 @@ def parse_args():
         help="name of the output folder in derivatives.",
     )
     parser.add_argument(
-        "--preproc", 
+        "--preproc",
+        action="store",
         default="all",
-        help="anat, func or all (def: all)")
+        help="anat, func or all (def: all)"
+    )
     parser.add_argument(
         "--slurm-account",
         action="store",
@@ -348,7 +357,8 @@ def parse_args():
     parser.add_argument(
         "--email",
         action="store",
-        help="email for SLURM notifications")
+        help="email for SLURM notifications"
+    )
     parser.add_argument(
         "--container",
         action="store",
@@ -388,9 +398,13 @@ def parse_args():
     )
     parser.add_argument(
         "--bids-filter",
-        action="store_true",
-        default="bids_filter.json",
+        action="store",
         help="Path to an optionnal bids_filter.json template",
+    )
+    parser.add_argument(
+        "--time",
+        action="store",
+        help="Time duration for the slurm job in slurm format (dd-)hh:mm:ss",
     )
     return parser.parse_args()
 
