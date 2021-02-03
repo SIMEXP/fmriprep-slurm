@@ -112,9 +112,11 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
 
     # checking if bids_filter path provided by user is valid, if not default bids_filter is used
     if os.path.exists(args.bids_filter):
-        BIDS_FILTERS = json.load(open(args.bids_filter))
-    with open(bids_filters_path, 'w') as f:
-        json.dump(BIDS_FILTERS, f)
+        bids_filters = json.load(open(args.bids_filter))
+    else:
+        bids_filters = BIDS_FILTERS
+    with open(bids_filters_path, "w") as f:
+        json.dump(bids_filters, f)
 
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
@@ -140,6 +142,8 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
                     f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
+                    # monitor resources to design a heuristic for runtime/cpu/ram
+                    "--resource-monitor",
                     SINGULARITY_DATA_PATH,
                     derivatives_path,
                     "participant",
@@ -239,11 +243,13 @@ def write_func_job(layout, subject, session, args):
 
     # checking if bids_filter path provided by user is valid, if not default bids_filter is used
     if os.path.exists(args.bids_filter):
-        BIDS_FILTERS = json.load(open(args.bids_filter))
+        bids_filters = json.load(open(args.bids_filter))
+    else:
+        bids_filters = BIDS_FILTERS
     # filter for session
-    BIDS_FILTERS["bold"].update({"session": session})
+    bids_filters["bold"].update({"session": session})
     with open(bids_filters_path, "w") as f:
-        json.dump(BIDS_FILTERS, f)
+        json.dump(bids_filters, f)
 
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
@@ -272,7 +278,7 @@ def write_func_job(layout, subject, session, args):
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
                     f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
-                    # monitor resources to design a heuristic for runtime/cpu/ram of func data
+                    # monitor resources to design a heuristic for runtime/cpu/ram
                     "--resource-monitor",
                     SINGULARITY_DATA_PATH,
                     derivatives_path,
@@ -383,6 +389,7 @@ def parse_args():
     parser.add_argument(
         "--bids-filter",
         action="store_true",
+        default="bids_filter.json",
         help="Path to an optionnal bids_filter.json template",
     )
     return parser.parse_args()
