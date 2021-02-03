@@ -56,10 +56,9 @@ scp -r {bids_root} $SLURM_TMPDIR
 
 """
 
-BIDS_FILTERS = {"t1w": {"reconstruction": None, "acquisition": None, "session":["001", "002"]}
-                , "t2w": {"reconstruction": None, "acquisition": None, "session":["001", "002"]}
+BIDS_FILTERS = {"t1w": {"reconstruction": None, "acquisition": None}
+                , "t2w": {"reconstruction": None, "acquisition": None}
                 , "bold": {} }
-
 
 def load_bidsignore(bids_root):
     """Load .bidsignore file from a BIDS dataset, returns list of regexps"""
@@ -111,6 +110,9 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         SLURM_JOB_DIR,
         "bids_filters.json")
 
+    # checking if bids_filter path provided by user is valid, if not default bids_filter is used
+    if os.path.exists(args.bids_filter):
+        BIDS_FILTERS = json.load(open(args.bids_filter))
     with open(bids_filters_path, 'w') as f:
         json.dump(BIDS_FILTERS, f)
 
@@ -235,6 +237,9 @@ def write_func_job(layout, subject, session, args):
         f"{job_specs['jobname']}_bids_filters.json"
     )
 
+    # checking if bids_filter path provided by user is valid, if not default bids_filter is used
+    if os.path.exists(args.bids_filter):
+        BIDS_FILTERS = json.load(open(args.bids_filter))
     # filter for session
     BIDS_FILTERS["bold"].update({"session": session})
     with open(bids_filters_path, "w") as f:
@@ -374,6 +379,11 @@ def parse_args():
         "--submit",
         action="store_true",
         help="Submit SLURM jobs",
+    )
+    parser.add_argument(
+        "--bids-filter",
+        action="store_true",
+        help="Path to an optionnal bids_filter.json template",
     )
     return parser.parse_args()
 
