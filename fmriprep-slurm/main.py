@@ -22,6 +22,9 @@ FMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "12:00:00", "omp_nthrea
 SINGULARITY_DATA_PATH = "/DATA"
 FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
 FMRIPREP_DEFAULT_SINGULARITY_FOLDER= f"$HOME/projects/rrg-pbellec/containers/"
+OUTPUS_SPACES_DEFAULT = ["MNI152NLin2009cAsym", "MNI152NLin6Asym"]
+SLURM_ACCOUNT_DEFAULT = "rrg-pbellec"
+PREPROC_DEFAULT = "all"
 TEMPLATEFLOW_HOME = os.path.join(os.path.join(os.environ["HOME"], ".cache"), "templateflow",)
 SINGULARITY_CMD_BASE = " ".join(
     [
@@ -335,7 +338,9 @@ def parse_args():
         description="create fmriprep jobs scripts",
     )
     parser.add_argument(
-        "bids_path", type=pathlib.Path, help="BIDS folder to run fmriprep on."
+        "bids_path",
+        type=pathlib.Path,
+        help="BIDS folder to run fmriprep on."
     )
     parser.add_argument(
         "derivatives_name",
@@ -345,14 +350,14 @@ def parse_args():
     parser.add_argument(
         "--preproc",
         action="store",
-        default="all",
-        help="anat, func or all (def: all)"
+        default=PREPROC_DEFAULT,
+        help="anat, func or all (default: all)"
     )
     parser.add_argument(
         "--slurm-account",
         action="store",
-        default="rrg-pbellec",
-        help="SLURM account for job submission (def: rrg-pbellec)",
+        default=SLURM_ACCOUNT_DEFAULT,
+        help="SLURM account for job submission (default: rrg-pbellec)",
     )
     parser.add_argument(
         "--email",
@@ -363,7 +368,7 @@ def parse_args():
         "--container",
         action="store",
         default=FMRIPREP_DEFAULT_VERSION,
-        help="fmriprep singularity container (def: fmriprep-20.2.1lts)"
+        help="fmriprep singularity container (default: fmriprep-20.2.1lts)"
     )
     parser.add_argument(
         "--participant-label",
@@ -376,8 +381,9 @@ def parse_args():
         "--output-spaces",
         action="store",
         nargs="+",
-        default=["MNI152NLin2009cAsym", "MNI152NLin6Asym"],
-        help="a space delimited list of templates as defined by templateflow (def: [\"MNI152NLin2009cAsym\", \"MNI152NLin6Asym\"])",
+        default=OUTPUS_SPACES_DEFAULT,
+        help="a space delimited list of templates as defined by templateflow "
+        "(default: [\"MNI152NLin2009cAsym\", \"MNI152NLin6Asym\"])",
     )
     parser.add_argument(
         "--session-label",
@@ -404,7 +410,8 @@ def parse_args():
     parser.add_argument(
         "--time",
         action="store",
-        help="Time duration for the slurm job in slurm format (dd-)hh:mm:ss",
+        help="Time duration for the slurm job in slurm format (dd-)hh:mm:ss "
+        "(default: 24h structural, 12h functionnal)",
     )
     return parser.parse_args()
 
