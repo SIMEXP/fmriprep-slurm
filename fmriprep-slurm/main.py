@@ -111,10 +111,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     derivatives_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), "derivatives", args.derivatives_name)
 
     # use json load/dump to copy filters (and validate json in the meantime)
-    bids_filters_path = os.path.join(
-        layout.root,
-        SLURM_JOB_DIR,
-        "bids_filters.json")
+    bids_filters_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), SLURM_JOB_DIR, "bids_filters.json")
 
     # checking if bids_filter path provided by user is valid, if not default bids_filter is used
     if args.bids_filter:
@@ -244,11 +241,7 @@ def write_func_job(layout, subject, session, args):
         job_specs.update({"time": args.time,})
 
     job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
-    bids_filters_path = os.path.join(
-        layout.root,
-        SLURM_JOB_DIR,
-        f"{job_specs['jobname']}_bids_filters.json"
-    )
+    bids_filters_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), SLURM_JOB_DIR, "bids_filters.json")
 
     # checking if bids_filter path provided by user is valid, if not default bids_filter is used
     if args.bids_filter:
