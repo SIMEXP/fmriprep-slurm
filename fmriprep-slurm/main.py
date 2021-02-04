@@ -124,6 +124,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
 
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
+    sing_bids_filters_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), bSLURM_JOB_DIR, "bids_filters.json")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
@@ -136,7 +137,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     f"--participant-label {subject}",
                     "--anat-only" if anat_only else "",
                     f"--bids-database-dir {sing_pybids_cache_path}",
-                    f" --bids-filter-file {bids_filters_path}",
+                    f" --bids-filter-file {sing_bids_filters_path}",
                     " --output-spaces",
                     *args.output_spaces,
                     "--cifti-output 91k",
@@ -241,7 +242,11 @@ def write_func_job(layout, subject, session, args):
         job_specs.update({"time": args.time,})
 
     job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
-    bids_filters_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), SLURM_JOB_DIR, "bids_filters.json")
+    bids_filters_path = os.path.join(
+        layout.root,
+        SLURM_JOB_DIR,
+        f"{job_specs['jobname']}_bids_filters.json"
+    )
 
     # checking if bids_filter path provided by user is valid, if not default bids_filter is used
     if args.bids_filter:
@@ -256,6 +261,7 @@ def write_func_job(layout, subject, session, args):
 
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
+    sing_bids_filters_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), SLURM_JOB_DIR, "bids_filters.json")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
@@ -269,7 +275,7 @@ def write_func_job(layout, subject, session, args):
                     f"--anat-derivatives {anat_path}/fmriprep",
                     f"--fs-subjects-dir {anat_path}/freesurfer",
                     f"--bids-database-dir {sing_pybids_cache_path}",
-                    f" --bids-filter-file {bids_filters_path}",
+                    f" --bids-filter-file {sing_bids_filters_path}",
                     " --ignore slicetiming",
                     "--use-syn-sdc",
                     "--output-spaces",
