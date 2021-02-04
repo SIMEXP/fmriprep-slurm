@@ -127,7 +127,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
 
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
-    sing_bids_filters_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), bSLURM_JOB_DIR, "bids_filters.json")
+    sing_bids_filters_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), SLURM_JOB_DIR, "bids_filters.json")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
