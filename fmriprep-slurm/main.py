@@ -341,12 +341,10 @@ def parse_args():
     )
     parser.add_argument(
         "bids_path",
-        type=pathlib.Path,
         help="BIDS folder to run fmriprep on."
     )
     parser.add_argument(
         "derivatives_name",
-        type=pathlib.Path,
         help="name of the output folder in derivatives.",
     )
     parser.add_argument(
@@ -421,7 +419,7 @@ def main():
 
     args = parse_args()
 
-    real_bids_path = os.path.real(args.bids_path)
+    real_bids_path = os.path.realpath(args.bids_path)
 
     pybids_cache_path = os.path.join(real_bids_path, PYBIDS_CACHE_PATH)
 
