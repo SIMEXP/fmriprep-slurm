@@ -65,9 +65,10 @@ BIDS_FILTERS = {"t1w": {"reconstruction": None, "acquisition": None}
 
 def load_bidsignore(bids_root):
     """Load .bidsignore file from a BIDS dataset, returns list of regexps"""
-    bids_ignore_path = bids_root / ".bidsignore"
-    if bids_ignore_path.exists():
-        bids_ignores = bids_ignore_path.read_text().splitlines()
+    bids_ignore_path = os.path.join(bids_root, ".bidsignore")
+    if os.path.exists(bids_ignore_path):
+        with open(bids_ignore_path) as f:
+            bids_ignores = f.read().splitlines()
         return tuple(
             [
                 re.compile(fnmatch.translate(bi))
