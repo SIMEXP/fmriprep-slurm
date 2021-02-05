@@ -21,7 +21,7 @@ FMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "12:00:00", "omp_nthrea
 
 SINGULARITY_DATA_PATH = "/DATA"
 FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
-FMRIPREP_DEFAULT_SINGULARITY_FOLDER= f"$HOME/projects/rrg-pbellec/containers/"
+FMRIPREP_DEFAULT_SINGULARITY_FOLDER= f"/lustre03/project/6003287/containers"
 OUTPUS_SPACES_DEFAULT = ["MNI152NLin2009cAsym", "MNI152NLin6Asym"]
 SLURM_ACCOUNT_DEFAULT = "rrg-pbellec"
 PREPROC_DEFAULT = "all"
@@ -421,10 +421,12 @@ def main():
 
     args = parse_args()
 
-    pybids_cache_path = os.path.join(args.bids_path, PYBIDS_CACHE_PATH)
+    real_bids_path = os.path.real(args.bids_path)
+
+    pybids_cache_path = os.path.join(real_bids_path, PYBIDS_CACHE_PATH)
 
     layout = bids.BIDSLayout(
-        args.bids_path,
+        real_bids_path,
         database_path=pybids_cache_path,
         reset_database=args.force_reindex,
         ignore=(
@@ -434,8 +436,12 @@ def main():
             "models",
             re.compile(r"^\."),
         )
-        + load_bidsignore(args.bids_path),
+        + load_bidsignore(real_bids_path),
     )
+
+    # TODO: bids/layout/validation.py:46: UserWarning: The ability to pass arguments to BIDSLayout that control indexing is likely to be removed in future;
+    # possibly as early as PyBIDS 0.14. This includes the `config_filename`, `ignore`, `force_index`, and `index_metadata` arguments.
+    # The recommended usage pattern is to initialize a new BIDSLayoutIndexer with these arguments, and pass it to the BIDSLayout via the `indexer` argument.
 
     job_path = os.path.join(layout.root, SLURM_JOB_DIR)
     if not os.path.exists(job_path):
