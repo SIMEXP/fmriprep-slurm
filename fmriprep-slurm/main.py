@@ -55,7 +55,7 @@ export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
 module load singularity/3.6
 
 #copying input dataset into local scratch space
-scp -r {bids_root} $SLURM_TMPDIR
+cp -r {bids_root} $SLURM_TMPDIR
 
 """
 
