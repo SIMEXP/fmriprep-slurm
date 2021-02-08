@@ -87,9 +87,10 @@ def write_job_footer(fd, jobname, bids_path):
     fd.write(
         f"cp $SLURM_TMPDIR/fmriprep_wf/resource_monitor.json /scratch/{os.environ['USER']}/{jobname}_resource_monitor.json \n"
     )
-    fd.write(
-        f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R $SLURM_TMPDIR /scratch/{os.environ['USER']}/{jobname}.workdir ; fi \n"
-    )
+    # TODO: copy working dir but exclude database dir
+    # fd.write(
+    #     f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R $SLURM_TMPDIR /scratch/{os.environ['USER']}/{jobname}.workdir ; fi \n"
+    # )
     fd.write(
         f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {local_derivative_dir} {user_derivative_dir} ; fi \n"
     )
@@ -109,7 +110,11 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
 
     job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
 
-    derivatives_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), "derivatives", args.derivatives_name)
+    derivatives_path = os.path.join(
+        layout.root,
+        "derivatives",
+        args.derivatives_name
+    )
 
     # use json load/dump to copy filters (and validate json in the meantime)
     bids_filters_path = os.path.join(
@@ -127,8 +132,8 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         json.dump(bids_filters, f)
 
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
-    sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
-    sing_bids_filters_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), SLURM_JOB_DIR, "bids_filters.json")
+    sing_pybids_cache_path = os.path.join(layout.root, ".pybids_cache")
+    sing_bids_filters_path = os.path.join(layout.root, SLURM_JOB_DIR, "bids_filters.json")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
@@ -174,8 +179,7 @@ def write_func_job(layout, subject, session, args):
         args.derivatives_name,
     )
     derivatives_path = os.path.join(
-        SINGULARITY_DATA_PATH, 
-        os.path.basename(layout.root), 
+        layout.root, 
         "derivatives", 
         args.derivatives_name)
 
@@ -264,8 +268,8 @@ def write_func_job(layout, subject, session, args):
         json.dump(bids_filters, f)
 
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
-    sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
-    sing_bids_filters_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), SLURM_JOB_DIR, "bids_filters.json")
+    sing_pybids_cache_path = os.path.join(layout.root, ".pybids_cache")
+    sing_bids_filters_path = os.path.join(layout.root, SLURM_JOB_DIR, "bids_filters.json")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
