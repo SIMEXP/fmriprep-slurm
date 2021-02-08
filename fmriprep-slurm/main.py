@@ -82,10 +82,10 @@ def load_bidsignore(sing_bids_path):
     return tuple()
 
 
-def write_job_footer(fd, jobname, bids_path):
+def write_job_footer(fd, jobname, bids_name):
     fd.write("fmriprep_exitcode=$?\n")
-    input_dir = os.path.join(bids_path, "derivatives")
-    out_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(bids_path), "derivatives", "fmriprep")
+    slurm_derivative_dir = os.path.join(SLURM_DATASET_FOLDER, bids_name, "derivatives")
+    local_derivative_dir = os.path.join("$SLURM_TMPDIR", bids_name, "derivatives", "fmriprep")
     # TODO: copy resource monitor output
     fd.write(
         f"cp $SLURM_TMPDIR/fmriprep_wf/resource_monitor.json /scratch/{os.environ['USER']}/{jobname}_resource_monitor.json \n"
@@ -94,7 +94,7 @@ def write_job_footer(fd, jobname, bids_path):
         f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R $SLURM_TMPDIR /scratch/{os.environ['USER']}/{jobname}.workdir ; fi \n"
     )
     fd.write(
-        f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {out_dir} {input_dir} ; fi \n"
+        f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {local_derivative_dir} {slurm_derivative_dir} ; fi \n"
     )
     fd.write("exit $fmriprep_exitcode \n")
 
@@ -163,7 +163,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                 ]
             )
         )
-        write_job_footer(f, job_specs["jobname"], layout.root)
+        write_job_footer(f, job_specs["jobname"], args.bids_name)
     return job_path
 
 
@@ -303,7 +303,7 @@ def write_func_job(layout, subject, session, args):
                 ]
             )
         )
-        write_job_footer(f, job_specs["jobname"], layout.root)
+        write_job_footer(f, job_specs["jobname"], args.bids_name)
 
     return job_path, outputs_exist
 
@@ -344,8 +344,8 @@ def parse_args():
         description="create fmriprep jobs scripts",
     )
     parser.add_argument(
-        "bids_path",
-        help="BIDS folder to run fmriprep on, relative to " + SLURM_DATASET_FOLDER
+        "bids_name",
+        help="BIDS folder to run fmriprep on inside" + SLURM_DATASET_FOLDER
     )
     parser.add_argument(
         "derivatives_name",
@@ -423,7 +423,7 @@ def main():
 
     args = parse_args()
 
-    sing_bids_path = os.path.join(SINGULARITY_DATA_PATH, args.bids_path)
+    sing_bids_path = os.path.join(SINGULARITY_DATA_PATH, args.bids_name)
 
     pybids_cache_path = os.path.join(sing_bids_path, PYBIDS_CACHE_PATH)
 
