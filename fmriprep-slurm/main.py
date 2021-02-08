@@ -81,8 +81,8 @@ def load_bidsignore(bids_root):
 
 def write_job_footer(fd, jobname, bids_path):
     fd.write("fmriprep_exitcode=$?\n")
-    input_dir = os.path.join(bids_path, "derivatives")
-    out_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(bids_path), "derivatives", "fmriprep")
+    user_derivative_dir = os.path.join(bids_path, "derivatives")
+    local_derivative_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(bids_path), "derivatives", "fmriprep")
     # TODO: copy resource monitor output
     fd.write(
         f"cp $SLURM_TMPDIR/fmriprep_wf/resource_monitor.json /scratch/{os.environ['USER']}/{jobname}_resource_monitor.json \n"
@@ -91,7 +91,7 @@ def write_job_footer(fd, jobname, bids_path):
         f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R $SLURM_TMPDIR /scratch/{os.environ['USER']}/{jobname}.workdir ; fi \n"
     )
     fd.write(
-        f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {out_dir} {input_dir} ; fi \n"
+        f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {local_derivative_dir} {user_derivative_dir} ; fi \n"
     )
     fd.write("exit $fmriprep_exitcode \n")
 
@@ -443,7 +443,7 @@ def main():
 
     job_path = os.path.join(layout.root, SLURM_JOB_DIR)
     if not os.path.exists(job_path):
-        os.mkdir(job_path)real
+        os.mkdir(job_path)
         # add .slurm to .gitignore
         with open(os.path.join(layout.root, ".gitignore"), "a+") as f:
             f.seek(0)
@@ -454,7 +454,7 @@ def main():
     os.environ["TEMPLATEFLOW_HOME"] = TEMPLATEFLOW_HOME
     tf_api.get(args.output_spaces + ["OASIS30ANTs", "fsLR", "fsaverage"])
 
-    for job_file in run_fmriprep(layout, args, args.preproc):
+    for job_file in run_fmriprep(layout, args):
         if args.submit:
             submit_slurm_job(job_file)
 
