@@ -18,14 +18,17 @@ SLURM_JOB_DIR = ".slurm"
 
 SMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "24:00:00", "omp_nthreads": 8}
 FMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "12:00:00", "omp_nthreads": 8}
-
-SINGULARITY_DATA_PATH = "/DATA"
-FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
-FMRIPREP_DEFAULT_SINGULARITY_FOLDER= f"/lustre03/project/6003287/containers"
-OUTPUS_SPACES_DEFAULT = ["MNI152NLin2009cAsym", "MNI152NLin6Asym"]
 SLURM_ACCOUNT_DEFAULT = "rrg-pbellec"
 PREPROC_DEFAULT = "all"
 TEMPLATEFLOW_HOME = os.path.join(os.path.join(os.environ["HOME"], ".cache"), "templateflow",)
+
+SINGULARITY_DATA_PATH = "/DATA"
+FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
+SLURM_PROJECT_FOLDER = "/lustre03/project/6003287/"
+SLURM_DATASET_FOLDER = os.path.join(SLURM_PROJECT_FOLDER, "datasets")
+SLURM_SINGULARITY_FOLDER= os.path.join(SLURM_PROJECT_FOLDER, "containers")
+OUTPUT_SPACES_DEFAULT = ["MNI152NLin2009cAsym", "MNI152NLin6Asym"]
+
 SINGULARITY_CMD_BASE = " ".join(
     [
         "singularity run",
@@ -39,8 +42,8 @@ SINGULARITY_CMD_BASE = " ".join(
 slurm_preamble = """#!/bin/bash
 #SBATCH --account={slurm_account}
 #SBATCH --job-name={jobname}.job
-#SBATCH --output={bids_root}/.slurm/{jobname}.out
-#SBATCH --error={bids_root}/.slurm/{jobname}.err
+#SBATCH --output={slurm_bids_root}/.slurm/{jobname}.out
+#SBATCH --error={slurm_bids_root}/.slurm/{jobname}.err
 #SBATCH --time={time}
 #SBATCH --cpus-per-task={cpus}
 #SBATCH --mem-per-cpu={mem_per_cpu}M
@@ -55,7 +58,7 @@ export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
 module load singularity/3.6
 
 #copying input dataset into local scratch space
-cp -r {bids_root} $SLURM_TMPDIR
+cp -r {slurm_bids_root} $SLURM_TMPDIR
 
 """
 
@@ -63,9 +66,9 @@ BIDS_FILTERS = {"t1w": {"reconstruction": None, "acquisition": None}
                 , "t2w": {"reconstruction": None, "acquisition": None}
                 , "bold": {} }
 
-def load_bidsignore(bids_root):
+def load_bidsignore(sing_bids_path):
     """Load .bidsignore file from a BIDS dataset, returns list of regexps"""
-    bids_ignore_path = os.path.join(bids_root, ".bidsignore")
+    bids_ignore_path = os.path.join(sing_bids_path, ".bidsignore")
     if os.path.exists(bids_ignore_path):
         with open(bids_ignore_path) as f:
             bids_ignores = f.read().splitlines()
@@ -101,7 +104,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         slurm_account=args.slurm_account,
         jobname=f"smriprep_sub-{subject}",
         email=args.email,
-        bids_root=layout.root,
+        slurm_bids_root=os.path.join(SLURM_DATASET_FOLDER, args.bids_path),
     )
     job_specs.update(SMRIPREP_REQ)
     if args.time:
@@ -126,7 +129,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     with open(bids_filters_path, "w") as f:
         json.dump(bids_filters, f)
 
-    fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
+    fmriprep_singularity_path = os.path.join(SLURM_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
     sing_bids_filters_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), SLURM_JOB_DIR, "bids_filters.json")
 
@@ -239,7 +242,7 @@ def write_func_job(layout, subject, session, args):
         slurm_account=args.slurm_account,
         jobname=f"fmriprep_study-{study}_sub-{subject}_ses-{session}",
         email=args.email,
-        bids_root=layout.root,
+        slurm_bids_root=os.path.join(SLURM_DATASET_FOLDER, args.bids_path),
     )
     job_specs.update(FMRIPREP_REQ)
     if args.time:
@@ -263,7 +266,7 @@ def write_func_job(layout, subject, session, args):
     with open(bids_filters_path, "w") as f:
         json.dump(bids_filters, f)
 
-    fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
+    fmriprep_singularity_path = os.path.join(SLURM_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), ".pybids_cache")
     sing_bids_filters_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(layout.root), SLURM_JOB_DIR, "bids_filters.json")
 
@@ -342,7 +345,7 @@ def parse_args():
     )
     parser.add_argument(
         "bids_path",
-        help="BIDS folder to run fmriprep on."
+        help="BIDS folder to run fmriprep on, relative to " + SLURM_DATASET_FOLDER
     )
     parser.add_argument(
         "derivatives_name",
@@ -382,7 +385,7 @@ def parse_args():
         "--output-spaces",
         action="store",
         nargs="+",
-        default=OUTPUS_SPACES_DEFAULT,
+        default=OUTPUT_SPACES_DEFAULT,
         help="a space delimited list of templates as defined by templateflow "
         "(default: [\"MNI152NLin2009cAsym\", \"MNI152NLin6Asym\"])",
     )
@@ -420,12 +423,12 @@ def main():
 
     args = parse_args()
 
-    real_bids_path = os.path.realpath(args.bids_path)
+    sing_bids_path = os.path.join(SINGULARITY_DATA_PATH, args.bids_path)
 
-    pybids_cache_path = os.path.join(real_bids_path, PYBIDS_CACHE_PATH)
+    pybids_cache_path = os.path.join(sing_bids_path, PYBIDS_CACHE_PATH)
 
     layout = bids.BIDSLayout(
-        real_bids_path,
+        sing_bids_path,
         database_path=pybids_cache_path,
         reset_database=args.force_reindex,
         ignore=(
@@ -435,7 +438,7 @@ def main():
             "models",
             re.compile(r"^\."),
         )
-        + load_bidsignore(real_bids_path),
+        + load_bidsignore(sing_bids_path),
     )
 
     # TODO: bids/layout/validation.py:46: UserWarning: The ability to pass arguments to BIDSLayout that control indexing is likely to be removed in future;
