@@ -30,7 +30,7 @@ SINGULARITY_CMD_BASE = " ".join(
     [
         "singularity run",
         "--cleanenv",
-        f"-B $SLURM_TMPDIR:{SINGULARITY_DATA_PATH}",  # use SLURM_TMPDIR to overcome scratch file number limit
+        f"-B $SLURM_TMPDIR:{SINGULARITY_DATA_PATH}",
         f"-B {TEMPLATEFLOW_HOME}:/templateflow",
         "-B /etc/pki:/etc/pki/",
     ]
@@ -79,7 +79,7 @@ def load_bidsignore(bids_root):
     return tuple()
 
 
-def write_job_footer(fd, jobname, bids_path):
+def write_job_footer(fd, jobname, bids_path, fmriprep_workdir):
     fd.write("fmriprep_exitcode=$?\n")
     user_derivative_dir = os.path.join(bids_path, "derivatives")
     local_derivative_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(bids_path), "derivatives", "fmriprep")
@@ -87,10 +87,9 @@ def write_job_footer(fd, jobname, bids_path):
     fd.write(
         f"cp $SLURM_TMPDIR/fmriprep_wf/resource_monitor.json /scratch/{os.environ['USER']}/{jobname}_resource_monitor.json \n"
     )
-    # TODO: copy working dir but exclude database dir
-    # fd.write(
-    #     f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R $SLURM_TMPDIR /scratch/{os.environ['USER']}/{jobname}.workdir ; fi \n"
-    # )
+    fd.write(
+        f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {fmriprep_workdir} /scratch/{os.environ['USER']}/{jobname}.workdir ; fi \n"
+    )
     fd.write(
         f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {local_derivative_dir} {user_derivative_dir} ; fi \n"
     )
@@ -134,6 +133,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(layout.root, ".pybids_cache")
     sing_bids_filters_path = os.path.join(layout.root, SLURM_JOB_DIR, "bids_filters.json")
+    fmriprep_workdir = os.path.join(SINGULARITY_DATA_PATH, "fmriprep_work")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
@@ -142,7 +142,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                 [
                     SINGULARITY_CMD_BASE,
                     fmriprep_singularity_path,
-                    f"-w {SINGULARITY_DATA_PATH}",
+                    f"-w {fmriprep_workdir}",
                     f"--participant-label {subject}",
                     "--anat-only" if anat_only else "",
                     f"--bids-database-dir {sing_pybids_cache_path}",
@@ -165,7 +165,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                 ]
             )
         )
-        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path))
+        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir)
     return job_path
 
 
@@ -270,6 +270,7 @@ def write_func_job(layout, subject, session, args):
     fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(layout.root, ".pybids_cache")
     sing_bids_filters_path = os.path.join(layout.root, SLURM_JOB_DIR, "bids_filters.json")
+    fmriprep_workdir = os.path.join(SINGULARITY_DATA_PATH, "fmriprep_work")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
@@ -278,7 +279,7 @@ def write_func_job(layout, subject, session, args):
                 [
                     SINGULARITY_CMD_BASE,
                     fmriprep_singularity_path,
-                    f"-w {SINGULARITY_DATA_PATH}",
+                    f"-w {fmriprep_workdir}",
                     f"--participant-label {subject}",
                     f"--anat-derivatives {anat_path}/fmriprep",
                     f"--fs-subjects-dir {anat_path}/freesurfer",
@@ -304,7 +305,7 @@ def write_func_job(layout, subject, session, args):
                 ]
             )
         )
-        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path))
+        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir)
 
     return job_path, outputs_exist
 
