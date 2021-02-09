@@ -158,7 +158,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
                     # monitor resources to design a heuristic for runtime/cpu/ram
                     "--resource-monitor",
-                    SINGULARITY_DATA_PATH,
+                    layout.root,
                     derivatives_path,
                     "participant",
                     "\n",
@@ -297,7 +297,7 @@ def write_func_job(layout, subject, session, args):
                     f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
                     # monitor resources to design a heuristic for runtime/cpu/ram
                     "--resource-monitor",
-                    SINGULARITY_DATA_PATH,
+                    layout.root,
                     derivatives_path,
                     "participant",
                     "\n",
