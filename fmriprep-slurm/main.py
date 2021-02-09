@@ -91,7 +91,7 @@ def write_job_footer(fd, jobname, bids_path, fmriprep_workdir):
         f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {fmriprep_workdir} /scratch/{os.environ['USER']}/{jobname}.workdir ; fi \n"
     )
     fd.write(
-        f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {local_derivative_dir} {user_derivative_dir} ; fi \n"
+        f"cp -R {local_derivative_dir} {user_derivative_dir}\n"
     )
     fd.write("exit $fmriprep_exitcode \n")
 
