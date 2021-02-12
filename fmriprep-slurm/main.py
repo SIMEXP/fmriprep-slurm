@@ -80,10 +80,10 @@ def load_bidsignore(bids_root):
     return tuple()
 
 
-def write_job_footer(fd, jobname, bids_path, fmriprep_workdir):
+def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name):
     fd.write("fmriprep_exitcode=$?\n")
     user_derivative_dir = os.path.join(bids_path, "derivatives")
-    local_derivative_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(bids_path), "derivatives", "fmriprep")
+    local_derivative_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(bids_path), "derivatives", derivatives_name)
     # TODO: copy resource monitor output
     fd.write(
         f"cp {fmriprep_workdir}/fmriprep_wf/resource_monitor.json /scratch/{os.environ['USER']}/{jobname}_resource_monitor.json \n"
@@ -91,6 +91,10 @@ def write_job_footer(fd, jobname, bids_path, fmriprep_workdir):
     fd.write(
         f"cp -R {local_derivative_dir} {user_derivative_dir}\n"
     )
+    # user_derivative_dir = os.path.join("$SCRATCH", "derivatives", derivatives_name)
+    # fd.write(
+    #     f"cp -R {local_derivative_dir} {user_derivative_dir}\n"
+    # )
     fd.write(
         f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {fmriprep_workdir} /scratch/{os.environ['USER']}/{jobname}.workdir ; fi \n"
     )
@@ -167,7 +171,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
             )
         )
         fmriprep_workdir = os.path.join("$SLURM_TMPDIR", "fmriprep_work")
-        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir)
+        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name)
     return job_path
 
 
@@ -308,7 +312,7 @@ def write_func_job(layout, subject, session, args):
             )
         )
         fmriprep_workdir = os.path.join("$SLURM_TMPDIR", "fmriprep_work")
-        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir)
+        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name)
 
     return job_path, outputs_exist
 
