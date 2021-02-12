@@ -31,6 +31,7 @@ SINGULARITY_CMD_BASE = " ".join(
         "singularity run",
         "--cleanenv",
         f"-B $SLURM_TMPDIR:{SINGULARITY_DATA_PATH}",
+        "-B $SCRATCH:/scratch
         f"-B {TEMPLATEFLOW_HOME}:/templateflow",
         "-B /etc/pki:/etc/pki/",
     ]
