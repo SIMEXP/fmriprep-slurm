@@ -173,7 +173,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
             )
         )
         fmriprep_workdir = os.path.join("$SLURM_TMPDIR", "fmriprep_work")
-        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name, slurm_account)
+        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name, args.slurm_account)
     return job_path
 
 
@@ -314,7 +314,7 @@ def write_func_job(layout, subject, session, args):
             )
         )
         fmriprep_workdir = os.path.join("$SLURM_TMPDIR", "fmriprep_work")
-        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name, slurm_account)
+        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name, args.slurm_account)
 
     return job_path, outputs_exist
 
