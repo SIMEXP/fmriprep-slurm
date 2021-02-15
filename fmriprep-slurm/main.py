@@ -80,13 +80,16 @@ def load_bidsignore(bids_root):
     return tuple()
 
 
-def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name):
+def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name, slurm_account):
     fd.write("fmriprep_exitcode=$?\n")
     user_derivative_dir = os.path.join(bids_path, "derivatives")
     local_derivative_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(bids_path), "derivatives", derivatives_name)
     # TODO: copy resource monitor output
     fd.write(
         f"cp {fmriprep_workdir}/fmriprep_wf/resource_monitor.json /scratch/{os.environ['USER']}/{jobname}_resource_monitor.json \n"
+    )
+    fd.write(
+        f"chgrp {slurm_account} {local_derivative_dir}\n"
     )
     fd.write(
         f"cp -R {local_derivative_dir} {user_derivative_dir}\n"
@@ -171,7 +174,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
             )
         )
         fmriprep_workdir = os.path.join("$SLURM_TMPDIR", "fmriprep_work")
-        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name)
+        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name, slurm_account)
     return job_path
 
 
@@ -312,7 +315,7 @@ def write_func_job(layout, subject, session, args):
             )
         )
         fmriprep_workdir = os.path.join("$SLURM_TMPDIR", "fmriprep_work")
-        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name)
+        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name, slurm_account)
 
     return job_path, outputs_exist
 
