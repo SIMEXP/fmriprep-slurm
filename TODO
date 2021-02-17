@@ -1,2 +1,4 @@
+* manage parameters for ccna (--use-aroma --dummy-scans 3)
+* adding cpu and mem options
 * better management of anat vs func data
 * submit a sample script (one subject) to have an heuristic of the total pre-processing time, and hardware requirements. (--resource-monitor)
