@@ -149,7 +149,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     "--anat-only" if anat_only else "",
                     f"--bids-database-dir {sing_pybids_cache_path}",
                     f" --bids-filter-file {sing_bids_filters_path}",
-                    " --".join(args.fmriprep_args),
+                    " ".join(args.fmriprep_args),
                     " --output-spaces",
                     *args.output_spaces,
                     "--notrack",
@@ -295,7 +295,7 @@ def write_func_job(layout, subject, session, args):
                     f" --bids-filter-file {sing_bids_filters_path}",
                     " --ignore slicetiming",
                     "--use-syn-sdc",
-                    " --".join(args.fmriprep_args),
+                    " ".join(args.fmriprep_args),
                     "--output-spaces",
                     *args.output_spaces,
                     "--notrack",
@@ -405,7 +405,7 @@ def parse_args():
         action="store",
         type=str,
         nargs='+',
-        help="additionnal arguments to the fmriprep command as a string (ex: --fmriprep-args \"fs-no-reconall use-aroma\") ",
+        help="additionnal arguments to the fmriprep command as a string (ex: --fmriprep-args=\"--fs-no-reconall --use-aroma\") ",
     )
     parser.add_argument(
         "--session-label",

@@ -34,7 +34,7 @@ optional arguments:
                         a space delimited list of templates as defined by templateflow (default: ["MNI152NLin2009cAsym"])
 
   --fmriprep-args FMRIPREP_ARGS
-                        additionnal arguments to the fmriprep command as a string (ex: --fmriprep-args \"--fs-no-reconall\")
+                        additionnal arguments to the fmriprep command as a string (ex: --fmriprep-args="--fs-no-reconall --use-aroma")
 
   --session-label SESSION_LABEL [SESSION_LABEL ...]
                         a space delimited list of session identifiers or a single identifier (the ses- prefix can be removed)
