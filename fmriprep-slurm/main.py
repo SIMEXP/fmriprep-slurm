@@ -154,7 +154,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     "--notrack",
                     "--skip_bids_validation",
                     "--write-graph",
-                    args.add_args,
+                    args.fmriprep_args,
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
                     f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
@@ -298,7 +298,7 @@ def write_func_job(layout, subject, session, args):
                     *args.output_spaces,
                     "--notrack",
                     "--write-graph",
-                    args.add_args,
+                    args.fmriprep_args,
                     "--skip_bids_validation",
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
@@ -400,9 +400,9 @@ def parse_args():
         "(default: [\"MNI152NLin2009cAsym\"])",
     )
     parser.add_argument(
-        "--add-args",
+        "--fmriprep-args",
         action="store",
-        help="additionnal arguments to the fmriprep command as a string, for example \"--add-args \"--fs-no-reconall\" \" ",
+        help="additionnal arguments to the fmriprep command as a string (ex: --fmriprep-args \\\"--fs-no-reconall\\\") ",
     )
     parser.add_argument(
         "--session-label",

@@ -33,7 +33,8 @@ optional arguments:
   --output-spaces OUTPUT_SPACES [OUTPUT_SPACES ...]
                         a space delimited list of templates as defined by templateflow (default: ["MNI152NLin2009cAsym"])
 
-  --add-args ADD_ARGS   additionnal arguments to the fmriprep command as a string, for example "--add-args "--fs-no-reconall" " 
+  --fmriprep-args FMRIPREP_ARGS
+                        additionnal arguments to the fmriprep command as a string (ex: --fmriprep-args \"--fs-no-reconall\")
 
   --session-label SESSION_LABEL [SESSION_LABEL ...]
                         a space delimited list of session identifiers or a single identifier (the ses- prefix can be removed)
