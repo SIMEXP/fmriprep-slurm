@@ -105,9 +105,9 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     if args.time:
         job_specs.update({"time": args.time,})
     if args.mem_per_cpu:
-        job_specs.update({"mem-per-cpu": args.mem_per_cpu,})
+        job_specs.update({"mem-per-cpu": int(args.mem_per_cpu),})
     if args.cpus:
-        job_specs.update({"cpus": args.cpus,})
+        job_specs.update({"cpus": int(args.cpus),})
 
     job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
 
@@ -252,9 +252,9 @@ def write_func_job(layout, subject, session, args):
     if args.time:
         job_specs.update({"time": args.time,})
     if args.mem_per_cpu:
-        job_specs.update({"mem-per-cpu": args.mem_per_cpu,})
+        job_specs.update({"mem-per-cpu": int(args.mem_per_cpu),})
     if args.cpus:
-        job_specs.update({"cpus": args.cpus,})
+        job_specs.update({"cpus": int(args.cpus),})
 
     job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
     bids_filters_path = os.path.join(
@@ -402,7 +402,8 @@ def parse_args():
     parser.add_argument(
         "--fmriprep-args",
         action="store",
-        help="additionnal arguments to the fmriprep command as a string (ex: --fmriprep-args \\\"--fs-no-reconall\\\") ",
+        type=str,
+        help="additionnal arguments to the fmriprep command as a string (ex: --fmriprep-args \"--fs-no-reconall --use-aroma\") ",
     )
     parser.add_argument(
         "--session-label",
