@@ -433,12 +433,6 @@ def parse_args():
         "(default: 24h structural, 12h functionnal)",
     )
     parser.add_argument(
-        "--time",
-        action="store",
-        help="Time duration for the slurm job in slurm format (dd-)hh:mm:ss "
-        "(default: 24h structural, 12h functionnal)",
-    )
-    parser.add_argument(
         "--mem-per-cpu",
         action="store",
         help="upper bound memory limit for fMRIPrep processes"
