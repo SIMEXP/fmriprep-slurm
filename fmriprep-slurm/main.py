@@ -105,7 +105,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     if args.time:
         job_specs.update({"time": args.time,})
     if args.mem_per_cpu:
-        job_specs.update({"mem-per-cpu": int(args.mem_per_cpu),})
+        job_specs.update({"mem_per_cpu": int(args.mem_per_cpu),})
     if args.cpus:
         job_specs.update({"cpus": int(args.cpus),})
 
@@ -253,7 +253,7 @@ def write_func_job(layout, subject, session, args):
     if args.time:
         job_specs.update({"time": args.time,})
     if args.mem_per_cpu:
-        job_specs.update({"mem-per-cpu": int(args.mem_per_cpu),})
+        job_specs.update({"mem_per_cpu": int(args.mem_per_cpu),})
     if args.cpus:
         job_specs.update({"cpus": int(args.cpus),})
 
