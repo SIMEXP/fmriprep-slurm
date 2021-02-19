@@ -22,7 +22,7 @@ FMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "12:00:00", "omp_nthrea
 SINGULARITY_DATA_PATH = "/DATA"
 FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
 FMRIPREP_DEFAULT_SINGULARITY_FOLDER= "/lustre03/project/6003287/containers"
-OUTPUT_SPACES_DEFAULT = ["MNI152NLin2009cAsym", "MNI152NLin6Asym"]
+OUTPUT_SPACES_DEFAULT = ["MNI152NLin2009cAsym"]
 SLURM_ACCOUNT_DEFAULT = "rrg-pbellec"
 PREPROC_DEFAULT = "all"
 TEMPLATEFLOW_HOME = os.path.join(os.path.join(os.environ["HOME"], ".cache"), "templateflow",)
@@ -104,6 +104,10 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     job_specs.update(SMRIPREP_REQ)
     if args.time:
         job_specs.update({"time": args.time,})
+    if args.mem_per_cpu:
+        job_specs.update({"mem-per-cpu": args.mem_per_cpu,})
+    if args.cpus:
+        job_specs.update({"cpus": args.cpus,})
 
     job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
 
@@ -147,10 +151,10 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     f" --bids-filter-file {sing_bids_filters_path}",
                     " --output-spaces",
                     *args.output_spaces,
-                    "--cifti-output 91k",
                     "--notrack",
                     "--skip_bids_validation",
                     "--write-graph",
+                    args.add_args,
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
                     f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
@@ -247,6 +251,10 @@ def write_func_job(layout, subject, session, args):
     job_specs.update(FMRIPREP_REQ)
     if args.time:
         job_specs.update({"time": args.time,})
+    if args.mem_per_cpu:
+        job_specs.update({"mem-per-cpu": args.mem_per_cpu,})
+    if args.cpus:
+        job_specs.update({"cpus": args.cpus,})
 
     job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
     bids_filters_path = os.path.join(
@@ -288,9 +296,9 @@ def write_func_job(layout, subject, session, args):
                     "--use-syn-sdc",
                     "--output-spaces",
                     *args.output_spaces,
-                    "--cifti-output 91k",
                     "--notrack",
                     "--write-graph",
+                    args.add_args,
                     "--skip_bids_validation",
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
@@ -389,7 +397,12 @@ def parse_args():
         nargs="+",
         default=OUTPUT_SPACES_DEFAULT,
         help="a space delimited list of templates as defined by templateflow "
-        "(default: [\"MNI152NLin2009cAsym\", \"MNI152NLin6Asym\"])",
+        "(default: [\"MNI152NLin2009cAsym\"])",
+    )
+    parser.add_argument(
+        "--add-args",
+        action="store",
+        help="additionnal arguments to the fmriprep command as a string, for example \"--add-args \"--fs-no-reconall\" \" ",
     )
     parser.add_argument(
         "--session-label",
@@ -419,6 +432,25 @@ def parse_args():
         help="Time duration for the slurm job in slurm format (dd-)hh:mm:ss "
         "(default: 24h structural, 12h functionnal)",
     )
+    parser.add_argument(
+        "--time",
+        action="store",
+        help="Time duration for the slurm job in slurm format (dd-)hh:mm:ss "
+        "(default: 24h structural, 12h functionnal)",
+    )
+    parser.add_argument(
+        "--mem-per-cpu",
+        action="store",
+        help="upper bound memory limit for fMRIPrep processes"
+        "(default: 4096MB)",
+    )
+    parser.add_argument(
+        "--cpus",
+        action="store",
+        help="maximum number of cpus for all processes"
+        "(default: 16)",
+    )
+
     return parser.parse_args()
 
 def main():
