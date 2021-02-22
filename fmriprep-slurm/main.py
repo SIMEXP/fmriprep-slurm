@@ -101,7 +101,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         jobname=f"smriprep_sub-{subject}",
         email=args.email,
         bids_root=os.path.realpath(args.bids_path),
-        participant=subject,
+        participant=f"sub-{subject}",
     )
     job_specs.update(SMRIPREP_REQ)
     if args.time:
@@ -250,7 +250,7 @@ def write_func_job(layout, subject, session, args):
         jobname=f"fmriprep_study-{study}_sub-{subject}_ses-{session}",
         email=args.email,
         bids_root=os.path.realpath(args.bids_path),
-        participant=subject,
+        participant=f"sub-{subject}",
     )
     job_specs.update(FMRIPREP_REQ)
     if args.time:
