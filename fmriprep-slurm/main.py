@@ -86,10 +86,10 @@ def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name)
         f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {fmriprep_workdir} $SCRATCH/{jobname}.workdir ; fi \n"
     )
     fd.write(
-        f"cp {fmriprep_workdir}/fmriprep_wf/resource_monitor.json $SCRATCH/{jobname}_resource_monitor.json \n"
+        f"if [ $fmriprep_exitcode -eq 0 ] ; then cp {fmriprep_workdir}/fmriprep_wf/resource_monitor.json $SCRATCH/{jobname}_resource_monitor.json ; fi \n"
     )
     fd.write(
-        f"cp -R {local_derivative_dir} $SCRATCH\n"
+        f"if [ $fmriprep_exitcode -eq 0 ] ; then cp -R {local_derivative_dir} $SCRATCH ; fi \n"
     )
     fd.write("exit $fmriprep_exitcode \n")
 
@@ -398,7 +398,7 @@ def parse_args():
         nargs="+",
         default=OUTPUT_SPACES_DEFAULT,
         help="a space delimited list of templates as defined by templateflow "
-        "(default: [\"MNI152NLin2009cAsym, MNI152NLin6Asym\"])",
+        "(default: [\"MNI152NLin2009cAsym\", \"MNI152NLin6Asym\"])",
     )
     parser.add_argument(
         "--fmriprep-args",
