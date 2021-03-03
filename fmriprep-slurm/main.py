@@ -157,7 +157,6 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     "--notrack",
                     "--skip_bids_validation",
                     "--write-graph",
-                    " ".join(args.fmriprep_args),
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
                     f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
@@ -408,6 +407,7 @@ def parse_args():
         action="store",
         type=str,
         nargs='+',
+        default="",
         help="additionnal arguments to the fmriprep command as a string (ex: --fmriprep-args=\"--fs-no-reconall --use-aroma\") ",
     )
     parser.add_argument(
