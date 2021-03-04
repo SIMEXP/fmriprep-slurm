@@ -1,4 +1,19 @@
 * fmriprep with datalad: https://handbook.datalad.org/en/latest/beyond_basics/101-171-enki.html
+pros:
+- capture preproc output provenance
+cons:
+- Manage a lot (lot) of branch within the beluga filesystem is suicidal
+- Much much more complex
+- Accessing preproc output for qc not obvious (need to switch branch, because qc is done before merging)
+Instead, we don't create branch, we generate the scripts with `datalad run`, preproc each output, do the qc and `datalad save` them at the end  (directly on master branch)
+pros:
+- no need to manage multiple branches
+- Less complex, git log cleaner
+- qc can be done normally (each output exists on the same branch, no checkout needed)
+cons:
+- preproc output not captured, (but anyway the advantage of capture would be able to re-run them which is not possible even with the previous solution)
+output is captured independently through the slurm scripts (which are run with `datalad run fmriprep-slurm ...`)
+
 * if folder .datalad exists, then we should copy (to SSD) just the actual subject, else, we can hard-copy as now.
 * better management of anat vs func data
 * submit a sample script (one subject) to have an heuristic of the total pre-processing time, and hardware requirements. (--resource-monitor)
