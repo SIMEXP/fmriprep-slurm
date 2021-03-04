@@ -1,3 +1,4 @@
+* fmriprep with datalad: https://handbook.datalad.org/en/latest/beyond_basics/101-171-enki.html
 * if folder .datalad exists, then we should copy (to SSD) just the actual subject, else, we can hard-copy as now.
 * better management of anat vs func data
 * submit a sample script (one subject) to have an heuristic of the total pre-processing time, and hardware requirements. (--resource-monitor)
