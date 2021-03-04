@@ -5,7 +5,9 @@ cons:
 - Manage a lot (lot) of branch within the beluga filesystem is suicidal
 - Much much more complex
 - Accessing preproc output for qc not obvious (need to switch branch, because qc is done before merging)
-Instead, we don't create branch, we generate the scripts with `datalad run`, preproc each output, do the qc and `datalad save` them at the end  (directly on master branch)
+`datalad-run-container` is not sufficient, we need `datalad-run slurm_script` so it can be re-run.
+
+Instead, we don't create branch, we generate the scripts with `datalad run fmriprep-slurm`, preproc each output with for each subject , do the qc and `datalad save` them at the end  (directly on master branch)
 pros:
 - no need to manage multiple branches
 - Less complex, git log cleaner
