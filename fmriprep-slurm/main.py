@@ -55,8 +55,8 @@ export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
 module load singularity/3.6
 
 #copying input dataset into local scratch space
-rsync -rltv --info=progress2 --exclude="{bids_root}/sub*" {bids_root} $SLURM_TMPDIR
-rsync -rltv --info=progress2 --include="{bids_root}/{participant}" --exclude="*" {bids_root} $SLURM_TMPDIR
+rsync -rltv --info=progress2 --exclude="sub*" --exclude="derivatives" {bids_root} $SLURM_TMPDIR
+rsync -rltv --info=progress2 {bids_root}/{participant} $SLURM_TMPDIR/{bids_basename}
 
 """
 
@@ -101,6 +101,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         jobname=f"smriprep_sub-{subject}",
         email=args.email,
         bids_root=os.path.realpath(args.bids_path),
+        bids_basename=os.path.basename(os.path.realpath(args.bids_path)),
         participant=f"sub-{subject}",
     )
     job_specs.update(SMRIPREP_REQ)
@@ -249,6 +250,7 @@ def write_func_job(layout, subject, session, args):
         jobname=f"fmriprep_study-{study}_sub-{subject}_ses-{session}",
         email=args.email,
         bids_root=os.path.realpath(args.bids_path),
+        bids_basename=os.path.basename(os.path.realpath(args.bids_path)),
         participant=f"sub-{subject}",
     )
     job_specs.update(FMRIPREP_REQ)
