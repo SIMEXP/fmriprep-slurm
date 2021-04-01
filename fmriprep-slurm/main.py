@@ -335,6 +335,7 @@ def run_fmriprep(layout, args):
         subjects = layout.get_subjects()
 
     for subject in subjects:
+        print(f"\t {subject}")
         if args.session_label:
             sessions = args.session_label
         else:
@@ -460,10 +461,12 @@ def parse_args():
 def main():
 
     args = parse_args()
-
+    print("\n### Running fmriprep-slurm\n")
+    print(vars(args))
     sing_bids_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(args.bids_path))
     pybids_cache_path = os.path.join(sing_bids_path, PYBIDS_CACHE_PATH)
 
+    print("\n# Loading pyBIDS database (it might take few hours for a big dataset)...\n")
     layout = bids.BIDSLayout(
         sing_bids_path,
         database_path=pybids_cache_path,
@@ -490,11 +493,12 @@ def main():
             f.seek(0)
             if not any([SLURM_JOB_DIR in l for l in f.readlines()]):
                 f.write(f"{SLURM_JOB_DIR}\n")
-
+    print("\n# Prefectch templateflow templates ...\n")
     # prefectch templateflow templates
     os.environ["TEMPLATEFLOW_HOME"] = TEMPLATEFLOW_HOME
     tf_api.get(args.output_spaces + ["OASIS30ANTs", "fsLR", "fsaverage"])
 
+    print("\n# Processing slurm files into {}\n".format(job_path))
     for job_file in run_fmriprep(layout, args):
         if args.submit:
             submit_slurm_job(job_file)

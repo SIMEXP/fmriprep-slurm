@@ -5,7 +5,8 @@ DATASET_PATH=$1
 DATASET_FOLDER="${DATASET_PATH%/*}"
 PYTHON_CMD="python /fmriprep-slurm/fmriprep-slurm/main.py "$@
 
-echo "Running fmriprep-slurm "$@
+echo "Running fmriprep-slurm with singularity"
+echo "singularity_run.bash "$@
 export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
 module load singularity/3.6
 
