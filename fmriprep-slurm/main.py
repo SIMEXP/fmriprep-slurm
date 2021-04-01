@@ -82,7 +82,8 @@ def load_bidsignore(bids_root):
 
 def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name):
     fd.write("fmriprep_exitcode=$?\n")
-    local_derivative_dir = os.path.join("$SLURM_TMPDIR", os.path.basename(bids_path), "derivatives", derivatives_name)
+    dataset_name = os.path.basename(bids_path)
+    local_derivative_dir = os.path.join("$SLURM_TMPDIR", dataset_name, "derivatives", derivatives_name)
     fd.write(
         f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {fmriprep_workdir} $SCRATCH/{jobname}.workdir ; fi \n"
     )
@@ -90,7 +91,10 @@ def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name)
         f"if [ $fmriprep_exitcode -eq 0 ] ; then cp {fmriprep_workdir}/fmriprep_wf/resource_monitor.json $SCRATCH/{jobname}_resource_monitor.json ; fi \n"
     )
     fd.write(
-        f"if [ $fmriprep_exitcode -eq 0 ] ; then cp -R {local_derivative_dir} $SCRATCH ; fi \n"
+        f"if [ $fmriprep_exitcode -eq 0 ] ; then mkdir -p $SCRATCH/{derivatives_name}-{dataset_name} ; fi \n"
+    )
+    fd.write(
+        f"if [ $fmriprep_exitcode -eq 0 ] ; then cp -R {local_derivative_dir}/* $SCRATCH/{derivatives_name}-{dataset_name}/ ; fi \n"
     )
     fd.write("exit $fmriprep_exitcode \n")
 
