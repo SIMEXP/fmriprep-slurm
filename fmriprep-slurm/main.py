@@ -8,7 +8,6 @@ import subprocess
 import json
 import re
 import fnmatch
-import pathlib
 import templateflow.api as tf_api
 
 SCRIPT_DIR = os.path.dirname(__file__)
@@ -16,16 +15,20 @@ SCRIPT_DIR = os.path.dirname(__file__)
 PYBIDS_CACHE_PATH = ".pybids_cache"
 SLURM_JOB_DIR = ".slurm"
 
-SMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "24:00:00", "omp_nthreads": 8}
-FMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096, "time": "12:00:00", "omp_nthreads": 8}
+SMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096,
+                "time": "24:00:00", "omp_nthreads": 8}
+FMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096,
+                "time": "12:00:00", "omp_nthreads": 8}
 
 SINGULARITY_DATA_PATH = "/DATA"
+SINGULARITY_OUTPUT_PATH = "/OUTPUT"
 FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
-FMRIPREP_DEFAULT_SINGULARITY_FOLDER= "/lustre03/project/6003287/containers"
+FMRIPREP_DEFAULT_SINGULARITY_FOLDER = "/lustre03/project/6003287/containers"
 OUTPUT_SPACES_DEFAULT = ["MNI152NLin2009cAsym", "MNI152NLin6Asym"]
 SLURM_ACCOUNT_DEFAULT = "rrg-pbellec"
 PREPROC_DEFAULT = "all"
-TEMPLATEFLOW_HOME = os.path.join(os.path.join(os.environ["HOME"], ".cache"), "templateflow",)
+TEMPLATEFLOW_HOME = os.path.join(os.path.join(
+    os.environ["HOME"], ".cache"), "templateflow",)
 SINGULARITY_CMD_BASE = " ".join(
     [
         "singularity run",
@@ -33,14 +36,15 @@ SINGULARITY_CMD_BASE = " ".join(
         f"-B $SLURM_TMPDIR:{SINGULARITY_DATA_PATH}",
         f"-B {TEMPLATEFLOW_HOME}:/templateflow",
         "-B /etc/pki:/etc/pki/",
+        "-B {original_output}:{SINGULARITY_OUTPUT_PATH}"
     ]
 )
 
 slurm_preamble = """#!/bin/bash
 #SBATCH --account={slurm_account}
 #SBATCH --job-name={jobname}.job
-#SBATCH --output={bids_root}/.slurm/{jobname}.out
-#SBATCH --error={bids_root}/.slurm/{jobname}.err
+#SBATCH --output={original_output}/{jobname}.out
+#SBATCH --error={original_output}/{jobname}.err
 #SBATCH --time={time}
 #SBATCH --cpus-per-task={cpus}
 #SBATCH --mem-per-cpu={mem_per_cpu}M
@@ -60,9 +64,9 @@ rsync -rltv --info=progress2 {bids_root}/{participant} $SLURM_TMPDIR/{bids_basen
 
 """
 
-BIDS_FILTERS = {"t1w": {"reconstruction": None, "acquisition": None}
-                , "t2w": {"reconstruction": None, "acquisition": None}
-                , "bold": {} }
+BIDS_FILTERS = {"t1w": {"reconstruction": None, "acquisition": None}, "t2w": {
+    "reconstruction": None, "acquisition": None}, "bold": {}}
+
 
 def load_bidsignore(bids_root):
     """Load .bidsignore file from a BIDS dataset, returns list of regexps"""
@@ -80,27 +84,29 @@ def load_bidsignore(bids_root):
     return tuple()
 
 
-def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name):
+def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name, output_path):
     fd.write("fmriprep_exitcode=$?\n")
     dataset_name = os.path.basename(bids_path)
-    local_derivative_dir = os.path.join("$SLURM_TMPDIR", dataset_name, "derivatives", derivatives_name)
+    local_derivative_dir = os.path.join(
+        "$SLURM_TMPDIR", dataset_name, "derivatives", derivatives_name)
     fd.write(
-        f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {fmriprep_workdir} $SCRATCH/{jobname}.workdir ; fi \n"
+        f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {fmriprep_workdir} {output_path}/{jobname}.workdir ; fi \n"
     )
     fd.write(
-        f"if [ $fmriprep_exitcode -eq 0 ] ; then cp {fmriprep_workdir}/fmriprep_wf/resource_monitor.json $SCRATCH/{jobname}_resource_monitor.json ; fi \n"
+        f"if [ $fmriprep_exitcode -eq 0 ] ; then cp {fmriprep_workdir}/fmriprep_wf/resource_monitor.json {output_path}/{jobname}_resource_monitor.json ; fi \n"
     )
     fd.write(
-        f"if [ $fmriprep_exitcode -eq 0 ] ; then mkdir -p $SCRATCH/{derivatives_name}-{dataset_name} ; fi \n"
+        f"if [ $fmriprep_exitcode -eq 0 ] ; then mkdir -p {output_path}/{derivatives_name} ; fi \n"
     )
     fd.write(
-        f"if [ $fmriprep_exitcode -eq 0 ] ; then cp -R {local_derivative_dir}/* $SCRATCH/{derivatives_name}-{dataset_name}/ ; fi \n"
+        f"if [ $fmriprep_exitcode -eq 0 ] ; then cp -R {local_derivative_dir}/* {output_path}/{derivatives_name}/ ; fi \n"
     )
     fd.write("exit $fmriprep_exitcode \n")
 
 
 def write_fmriprep_job(layout, subject, args, anat_only=True):
     job_specs = dict(
+        original_output=args.output_path,
         slurm_account=args.slurm_account,
         jobname=f"smriprep_sub-{subject}",
         email=args.email,
@@ -110,13 +116,14 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     )
     job_specs.update(SMRIPREP_REQ)
     if args.time:
-        job_specs.update({"time": args.time,})
+        job_specs.update({"time": args.time, })
     if args.mem_per_cpu:
-        job_specs.update({"mem_per_cpu": int(args.mem_per_cpu),})
+        job_specs.update({"mem_per_cpu": int(args.mem_per_cpu), })
     if args.cpus:
-        job_specs.update({"cpus": int(args.cpus),})
+        job_specs.update({"cpus": int(args.cpus), })
 
-    job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
+    job_path = os.path.join(SINGULARITY_OUTPUT_PATH,
+                            SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
 
     derivatives_path = os.path.join(
         layout.root,
@@ -126,8 +133,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
 
     # use json load/dump to copy filters (and validate json in the meantime)
     bids_filters_path = os.path.join(
-        layout.root,
-        SLURM_JOB_DIR,
+        SINGULARITY_OUTPUT_PATH,
         "bids_filters.json")
 
     # checking if bids_filter path provided by user is valid, if not default bids_filter is used
@@ -139,23 +145,25 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     with open(bids_filters_path, "w") as f:
         json.dump(bids_filters, f)
 
-    fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
+    fmriprep_singularity_path = os.path.join(
+        FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(layout.root, ".pybids_cache")
-    sing_bids_filters_path = os.path.join(layout.root, SLURM_JOB_DIR, "bids_filters.json")
-    sing_fmriprep_workdir = os.path.join(SINGULARITY_DATA_PATH, "fmriprep_work")
+    sing_fmriprep_workdir = os.path.join(
+        SINGULARITY_DATA_PATH, "fmriprep_work")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
         f.write(
             " ".join(
                 [
-                    SINGULARITY_CMD_BASE,
+                    SINGULARITY_CMD_BASE.format(
+                        original_output=args.output_path, SINGULARITY_OUTPUT_PATH=SINGULARITY_OUTPUT_PATH),
                     fmriprep_singularity_path,
                     f"-w {sing_fmriprep_workdir}",
                     f"--participant-label {subject}",
                     "--anat-only" if anat_only else "",
                     f"--bids-database-dir {sing_pybids_cache_path}",
-                    f" --bids-filter-file {sing_bids_filters_path}",
+                    f" --bids-filter-file {bids_filters_path}",
                     " ".join(args.fmriprep_args),
                     " --output-spaces",
                     *args.output_spaces,
@@ -176,7 +184,8 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
             )
         )
         fmriprep_workdir = os.path.join("$SLURM_TMPDIR", "fmriprep_work")
-        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name)
+        write_job_footer(f, job_specs["jobname"], os.path.realpath(
+            args.bids_path), fmriprep_workdir, args.derivatives_name, args.output_path)
     return job_path
 
 
@@ -190,8 +199,8 @@ def write_func_job(layout, subject, session, args):
         args.derivatives_name,
     )
     derivatives_path = os.path.join(
-        layout.root, 
-        "derivatives", 
+        layout.root,
+        "derivatives",
         args.derivatives_name)
 
     bold_runs = layout.get(
@@ -239,7 +248,8 @@ def write_func_job(layout, subject, session, args):
             + "_bold.dtseries.nii",
         )
         # test if file or symlink (even broken if git-annex and not pulled)
-        bold_deriv = os.path.lexists(preproc_path) and os.path.lexists(dtseries_path)
+        bold_deriv = os.path.lexists(
+            preproc_path) and os.path.lexists(dtseries_path)
         if bold_deriv:
             print(
                 f"found existing derivatives for {bold_run.path} : {preproc_path}, {dtseries_path}"
@@ -260,16 +270,16 @@ def write_func_job(layout, subject, session, args):
     )
     job_specs.update(FMRIPREP_REQ)
     if args.time:
-        job_specs.update({"time": args.time,})
+        job_specs.update({"time": args.time, })
     if args.mem_per_cpu:
-        job_specs.update({"mem_per_cpu": int(args.mem_per_cpu),})
+        job_specs.update({"mem_per_cpu": int(args.mem_per_cpu), })
     if args.cpus:
-        job_specs.update({"cpus": int(args.cpus),})
+        job_specs.update({"cpus": int(args.cpus), })
 
-    job_path = os.path.join(layout.root, SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
+    job_path = os.path.join(SINGULARITY_OUTPUT_PATH,
+                            SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
     bids_filters_path = os.path.join(
-        layout.root,
-        SLURM_JOB_DIR,
+        SINGULARITY_OUTPUT_PATH,
         f"{job_specs['jobname']}_bids_filters.json"
     )
 
@@ -284,24 +294,26 @@ def write_func_job(layout, subject, session, args):
     with open(bids_filters_path, "w") as f:
         json.dump(bids_filters, f)
 
-    fmriprep_singularity_path = os.path.join(FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
+    fmriprep_singularity_path = os.path.join(
+        FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_pybids_cache_path = os.path.join(layout.root, ".pybids_cache")
-    sing_bids_filters_path = os.path.join(layout.root, SLURM_JOB_DIR, "bids_filters.json")
-    sing_fmriprep_workdir = os.path.join(SINGULARITY_DATA_PATH, "fmriprep_work")
+    sing_fmriprep_workdir = os.path.join(
+        SINGULARITY_DATA_PATH, "fmriprep_work")
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
         f.write(
             " ".join(
                 [
-                    SINGULARITY_CMD_BASE,
+                    SINGULARITY_CMD_BASE.format(
+                        original_output=args.output_path, SINGULARITY_OUTPUT_PATH=SINGULARITY_OUTPUT_PATH),
                     fmriprep_singularity_path,
                     f"-w {sing_fmriprep_workdir}",
                     f"--participant-label {subject}",
                     f"--anat-derivatives {anat_path}/fmriprep",
                     f"--fs-subjects-dir {anat_path}/freesurfer",
                     f"--bids-database-dir {sing_pybids_cache_path}",
-                    f" --bids-filter-file {sing_bids_filters_path}",
+                    f" --bids-filter-file {bids_filters_path}",
                     " --ignore slicetiming",
                     "--use-syn-sdc",
                     " ".join(args.fmriprep_args),
@@ -324,13 +336,15 @@ def write_func_job(layout, subject, session, args):
             )
         )
         fmriprep_workdir = os.path.join("$SLURM_TMPDIR", "fmriprep_work")
-        write_job_footer(f, job_specs["jobname"], os.path.realpath(args.bids_path), fmriprep_workdir, args.derivatives_name)
+        write_job_footer(f, job_specs["jobname"], os.path.realpath(
+            args.bids_path), fmriprep_workdir, args.derivatives_name, args.output_path)
 
     return job_path, outputs_exist
 
 
 def submit_slurm_job(job_path):
     return subprocess.run(["sbatch", job_path])
+
 
 def run_fmriprep(layout, args):
 
@@ -348,7 +362,8 @@ def run_fmriprep(layout, args):
         if args.preproc == "func":
             for session in sessions:
                 # TODO: check if derivative already exists for that subject
-                job_path, outputs_exist = write_func_job(layout, subject, session, args)
+                job_path, outputs_exist = write_func_job(
+                    layout, subject, session, args)
                 if outputs_exist:
                     print(
                         f"all output already exists for sub-{subject} ses-{session}, not rerunning"
@@ -359,6 +374,7 @@ def run_fmriprep(layout, args):
             yield write_fmriprep_job(layout, subject, args, anat_only=True)
         elif args.preproc == "all":
             yield write_fmriprep_job(layout, subject, args, anat_only=False)
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -372,6 +388,12 @@ def parse_args():
     parser.add_argument(
         "derivatives_name",
         help="name of the output folder in derivatives.",
+    )
+    parser.add_argument(
+        "--output-path",
+        action="store",
+        type=str,
+        help="output path for SLURM files, logs and also bids filters"
     )
     parser.add_argument(
         "--preproc",
@@ -462,12 +484,14 @@ def parse_args():
 
     return parser.parse_args()
 
+
 def main():
 
     args = parse_args()
     print("\n### Running fmriprep-slurm\n")
     print(vars(args))
-    sing_bids_path = os.path.join(SINGULARITY_DATA_PATH, os.path.basename(args.bids_path))
+    sing_bids_path = os.path.join(
+        SINGULARITY_DATA_PATH, os.path.basename(args.bids_path))
     pybids_cache_path = os.path.join(sing_bids_path, PYBIDS_CACHE_PATH)
 
     print("\n# Loading pyBIDS database (it might take few hours for a big dataset)...\n")
@@ -489,20 +513,16 @@ def main():
     # possibly as early as PyBIDS 0.14. This includes the `config_filename`, `ignore`, `force_index`, and `index_metadata` arguments.
     # The recommended usage pattern is to initialize a new BIDSLayoutIndexer with these arguments, and pass it to the BIDSLayout via the `indexer` argument.
 
-    job_path = os.path.join(layout.root, SLURM_JOB_DIR)
+    job_path = os.path.join(SINGULARITY_OUTPUT_PATH, SLURM_JOB_DIR)
     if not os.path.exists(job_path):
         os.mkdir(job_path)
-        # add .slurm to .gitignore
-        with open(os.path.join(layout.root, ".gitignore"), "a+") as f:
-            f.seek(0)
-            if not any([SLURM_JOB_DIR in l for l in f.readlines()]):
-                f.write(f"{SLURM_JOB_DIR}\n")
     print("\n# Prefectch templateflow templates ...\n")
     # prefectch templateflow templates
     os.environ["TEMPLATEFLOW_HOME"] = TEMPLATEFLOW_HOME
     tf_api.get(args.output_spaces + ["OASIS30ANTs", "fsLR", "fsaverage"])
 
-    print("\n# Processing slurm files into {}\n".format(job_path))
+    print("\n# Processing slurm files into {}\n".format(
+        os.path.join(args.output_path, SLURM_JOB_DIR)))
     for job_file in run_fmriprep(layout, args):
         if args.submit:
             submit_slurm_job(job_file)
