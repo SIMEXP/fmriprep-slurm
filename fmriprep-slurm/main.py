@@ -58,9 +58,8 @@ export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
 module load singularity/3.8
 
 #copying input dataset into local scratch space
-rsync -rltv --info=progress2 --exclude="sub*" --exclude="derivatives" {bids_root} ${SLURM_TMPDIR}
-rsync -rltv --info=progress2 {bids_root}/{participant} ${SLURM_TMPDIR}/{bids_basename}
-rsync -rltv --info=progress2 {bids_root}/{participant} ${SLURM_TMPDIR}/
+rsync -rltv --info=progress2 --exclude="sub*" --exclude="derivatives" {bids_root} $SLURM_TMPDIR
+rsync -rltv --info=progress2 {bids_root}/{participant} $SLURM_TMPDIR/{bids_basename}
 
 """
 
@@ -146,7 +145,6 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     bids_filters_path = os.path.join(
         SINGULARITY_OUTPUT_PATH,
         "bids_filters.json")
-
     # checking if bids_filter path provided by user is valid, if not default bids_filter is used
     if args.bids_filter:
         if os.path.exists(args.bids_filter):
