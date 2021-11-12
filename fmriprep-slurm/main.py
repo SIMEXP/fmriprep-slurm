@@ -12,7 +12,6 @@ import templateflow.api as tf_api
 
 SCRIPT_DIR = os.path.dirname(__file__)
 
-PYBIDS_CACHE_PATH = ".pybids_cache"
 SLURM_JOB_DIR = ".slurm"
 
 SMRIPREP_REQ = {"cpus": 16, "mem_per_cpu": 4096,
@@ -56,16 +55,28 @@ slurm_preamble = """#!/bin/bash
 export SINGULARITYENV_FS_LICENSE=$HOME/.freesurfer.txt
 export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
 
-module load singularity/3.6
+module load singularity/3.8
 
 #copying input dataset into local scratch space
-rsync -rltv --info=progress2 --exclude="sub*" --exclude="derivatives" {bids_root} $SLURM_TMPDIR
-rsync -rltv --info=progress2 {bids_root}/{participant} $SLURM_TMPDIR/{bids_basename}
+rsync -rltv --info=progress2 --exclude="sub*" --exclude="derivatives" {bids_root} ${SLURM_TMPDIR}
+rsync -rltv --info=progress2 {bids_root}/{participant} ${SLURM_TMPDIR}/{bids_basename}
+rsync -rltv --info=progress2 {bids_root}/{participant} ${SLURM_TMPDIR}/
 
 """
 
-BIDS_FILTERS = {"t1w": {"reconstruction": None, "acquisition": None}, "t2w": {
-    "reconstruction": None, "acquisition": None}, "bold": {}}
+#default fmriprep bids filter
+BIDS_FILTERS = {
+  'fmap': {'datatype': 'fmap'},
+  'bold': {'datatype': 'func', 'suffix': 'bold'},
+  'sbref': {'datatype': 'func', 'suffix': 'sbref'},
+  'flair': {'datatype': 'anat', 'suffix': 'FLAIR'},
+  't2w': {'datatype': 'anat', 'suffix': 'T2w'},
+  't1w': {'datatype': 'anat', 'suffix': 'T1w'},
+  'roi': {'datatype': 'anat', 'suffix': 'roi'},
+}
+# old bids filter
+# BIDS_FILTERS = {"t1w": {"reconstruction": None, "acquisition": None}, "t2w": {
+#     "reconstruction": None, "acquisition": None}, "bold": {}}
 
 
 def load_bidsignore(bids_root):
@@ -90,16 +101,16 @@ def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name,
     local_derivative_dir = os.path.join(
         "$SLURM_TMPDIR", dataset_name, "derivatives", derivatives_name)
     fd.write(
-        f"if [ $fmriprep_exitcode -ne 0 ] ; then cp -R {fmriprep_workdir} {output_path}/{jobname}.workdir ; fi \n"
+        f"if [ $fmriprep_exitcode -ne 0 ] ; then rsync -rltv --info=progress2 {fmriprep_workdir} {output_path}/{jobname}.workdir ; fi \n"
     )
     fd.write(
-        f"if [ $fmriprep_exitcode -eq 0 ] ; then cp {fmriprep_workdir}/fmriprep_wf/resource_monitor.json {output_path}/{jobname}_resource_monitor.json ; fi \n"
+        f"if [ $fmriprep_exitcode -eq 0 ] ; then rsync -rltv --info=progress2 {fmriprep_workdir}/fmriprep_wf/resource_monitor.json {output_path}/{jobname}_resource_monitor.json ; fi \n"
     )
     fd.write(
         f"if [ $fmriprep_exitcode -eq 0 ] ; then mkdir -p {output_path}/{derivatives_name} ; fi \n"
     )
     fd.write(
-        f"if [ $fmriprep_exitcode -eq 0 ] ; then cp -R {local_derivative_dir}/* {output_path}/{derivatives_name}/ ; fi \n"
+        f"if [ $fmriprep_exitcode -eq 0 ] ; then rsync -rltv --info=progress2 {local_derivative_dir}/* {output_path}/{derivatives_name}/ ; fi \n"
     )
     fd.write("exit $fmriprep_exitcode \n")
 
@@ -147,7 +158,6 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
 
     fmriprep_singularity_path = os.path.join(
         FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
-    sing_pybids_cache_path = os.path.join(layout.root, ".pybids_cache")
     sing_fmriprep_workdir = os.path.join(
         SINGULARITY_DATA_PATH, "fmriprep_work")
 
@@ -162,7 +172,6 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     f"-w {sing_fmriprep_workdir}",
                     f"--participant-label {subject}",
                     "--anat-only" if anat_only else "",
-                    f"--bids-database-dir {sing_pybids_cache_path}",
                     f" --bids-filter-file {bids_filters_path}",
                     " ".join(args.fmriprep_args),
                     " --output-spaces",
@@ -296,7 +305,6 @@ def write_func_job(layout, subject, session, args):
 
     fmriprep_singularity_path = os.path.join(
         FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
-    sing_pybids_cache_path = os.path.join(layout.root, ".pybids_cache")
     sing_fmriprep_workdir = os.path.join(
         SINGULARITY_DATA_PATH, "fmriprep_work")
 
@@ -312,7 +320,6 @@ def write_func_job(layout, subject, session, args):
                     f"--participant-label {subject}",
                     f"--anat-derivatives {anat_path}/fmriprep",
                     f"--fs-subjects-dir {anat_path}/freesurfer",
-                    f"--bids-database-dir {sing_pybids_cache_path}",
                     f" --bids-filter-file {bids_filters_path}",
                     " --ignore slicetiming",
                     "--use-syn-sdc",
@@ -490,14 +497,12 @@ def main():
     args = parse_args()
     print("\n### Running fmriprep-slurm\n")
     print(vars(args))
-    sing_bids_path = os.path.join(
-        SINGULARITY_DATA_PATH, os.path.basename(args.bids_path))
-    pybids_cache_path = os.path.join(sing_bids_path, PYBIDS_CACHE_PATH)
 
     print("\n# Loading pyBIDS database (it might take few hours for a big dataset)...\n")
+    sing_bids_path = os.path.join(
+        SINGULARITY_DATA_PATH, os.path.basename(args.bids_path))
     layout = bids.BIDSLayout(
         sing_bids_path,
-        database_path=pybids_cache_path,
         reset_database=args.force_reindex,
         ignore=(
             "code",
@@ -508,14 +513,10 @@ def main():
         )
         + load_bidsignore(sing_bids_path),
     )
-
-    # TODO: bids/layout/validation.py:46: UserWarning: The ability to pass arguments to BIDSLayout that control indexing is likely to be removed in future;
-    # possibly as early as PyBIDS 0.14. This includes the `config_filename`, `ignore`, `force_index`, and `index_metadata` arguments.
-    # The recommended usage pattern is to initialize a new BIDSLayoutIndexer with these arguments, and pass it to the BIDSLayout via the `indexer` argument.
-
     job_path = os.path.join(SINGULARITY_OUTPUT_PATH, SLURM_JOB_DIR)
     if not os.path.exists(job_path):
         os.mkdir(job_path)
+    
     print("\n# Prefectch templateflow templates ...\n")
     # prefectch templateflow templates
     os.environ["TEMPLATEFLOW_HOME"] = TEMPLATEFLOW_HOME
