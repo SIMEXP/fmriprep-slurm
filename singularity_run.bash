@@ -1,7 +1,8 @@
 #!/bin/bash
 
+set -- "${1%/}" "${@:2}" # trick to remove last path char from first arg (dataset path)
 PROJECT_PATH="/lustre03/project/6003287"
-DATASET_PATH=${1%/} #remove last path char
+DATASET_PATH=$1
 DATASET_FOLDER="${DATASET_PATH%/*}"
 DATASET_NAME=${DATASET_PATH##*/}
 OUTPUT_DIR=$SCRATCH/$DATASET_NAME/$(date +%s)
