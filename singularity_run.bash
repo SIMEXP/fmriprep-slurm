@@ -12,7 +12,7 @@ PYTHON_CMD="python /fmriprep-slurm/fmriprep-slurm/main.py "$@" --output-path "$O
 echo "###"
 echo "singularity_run.bash "$@
 export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
-module load singularity/3.6
+module load singularity/3.8
 
 echo "Creating templateflow directory in "$TEMPLATEFLOW_DIR
 mkdir -p $TEMPLATEFLOW_DIR
