@@ -421,7 +421,7 @@ def parse_args():
         "--container",
         action="store",
         default=FMRIPREP_DEFAULT_VERSION,
-        help="fmriprep singularity container (default: fmriprep-20.2.1lts)"
+        help="name of the fmriprep singularity container under the default container location (default: fmriprep-20.2.1lts)"
     )
     parser.add_argument(
         "--participant-label",
