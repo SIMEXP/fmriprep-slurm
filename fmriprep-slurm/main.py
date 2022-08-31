@@ -14,9 +14,9 @@ SCRIPT_DIR = os.path.dirname(__file__)
 
 SLURM_JOB_DIR = ".slurm"
 
-SMRIPREP_REQ = {"cpus": 1, "mem_per_cpu": 8192,
+SMRIPREP_REQ = {"cpus": 1, "mem_per_cpu": 16384,
                 "time": "24:00:00", "omp_nthreads": 1}
-FMRIPREP_REQ = {"cpus": 1, "mem_per_cpu": 8192,
+FMRIPREP_REQ = {"cpus": 1, "mem_per_cpu": 16384,
                 "time": "24:00:00", "omp_nthreads": 1}
 
 SINGULARITY_DATA_PATH = "/DATA"
