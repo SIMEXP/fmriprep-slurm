@@ -180,7 +180,6 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     "--write-graph",
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
-                    f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
                     # monitor resources to design a heuristic for runtime/cpu/ram
                     "--resource-monitor",
                     layout.root,
@@ -330,7 +329,6 @@ def write_func_job(layout, subject, session, args):
                     "--skip_bids_validation",
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
-                    f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
                     # monitor resources to design a heuristic for runtime/cpu/ram
                     "--resource-monitor",
                     layout.root,
