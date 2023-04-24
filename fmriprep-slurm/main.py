@@ -21,7 +21,7 @@ FMRIPREP_REQ = {"cpus": 1, "mem_per_cpu": 16384,
 
 SINGULARITY_DATA_PATH = "/DATA"
 SINGULARITY_OUTPUT_PATH = "/OUTPUT"
-FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.1lts"
+FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.7lts"
 FMRIPREP_DEFAULT_SINGULARITY_FOLDER = "/lustre03/project/6003287/containers"
 OUTPUT_SPACES_DEFAULT = ["MNI152NLin2009cAsym", "MNI152NLin6Asym"]
 SLURM_ACCOUNT_DEFAULT = "rrg-pbellec"
@@ -180,8 +180,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     "--write-graph",
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
-                    # monitor resources to design a heuristic for runtime/cpu/ram
-                    "--resource-monitor",
+                    "--random-seed 0",
                     layout.root,
                     derivatives_path,
                     "participant",
@@ -329,8 +328,7 @@ def write_func_job(layout, subject, session, args):
                     "--skip_bids_validation",
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
-                    # monitor resources to design a heuristic for runtime/cpu/ram
-                    "--resource-monitor",
+                    "--random-seed 0",
                     layout.root,
                     derivatives_path,
                     "participant",
@@ -470,7 +468,7 @@ def parse_args():
         "--time",
         action="store",
         help="Time duration for the slurm job in slurm format (dd-)hh:mm:ss "
-        "(default: 24h structural, 24h functionnal)",
+        "(default: 24h)",
     )
     parser.add_argument(
         "--mem-per-cpu",
@@ -512,7 +510,7 @@ def main():
     job_path = os.path.join(SINGULARITY_OUTPUT_PATH, SLURM_JOB_DIR)
     if not os.path.exists(job_path):
         os.mkdir(job_path)
-    
+
     print("\n# Prefectch templateflow templates ...\n")
     # prefectch templateflow templates
     os.environ["TEMPLATEFLOW_HOME"] = TEMPLATEFLOW_HOME
