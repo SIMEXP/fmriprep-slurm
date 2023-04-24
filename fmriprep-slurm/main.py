@@ -14,9 +14,9 @@ SCRIPT_DIR = os.path.dirname(__file__)
 
 SLURM_JOB_DIR = ".slurm"
 
-SMRIPREP_REQ = {"cpus": 1, "mem_per_cpu": 8192,
+SMRIPREP_REQ = {"cpus": 1, "mem_per_cpu": 16384,
                 "time": "24:00:00", "omp_nthreads": 1}
-FMRIPREP_REQ = {"cpus": 1, "mem_per_cpu": 8192,
+FMRIPREP_REQ = {"cpus": 1, "mem_per_cpu": 16384,
                 "time": "24:00:00", "omp_nthreads": 1}
 
 SINGULARITY_DATA_PATH = "/DATA"
@@ -180,7 +180,6 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
                     "--write-graph",
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
-                    f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
                     # monitor resources to design a heuristic for runtime/cpu/ram
                     "--resource-monitor",
                     layout.root,
@@ -330,7 +329,6 @@ def write_func_job(layout, subject, session, args):
                     "--skip_bids_validation",
                     f"--omp-nthreads {job_specs['omp_nthreads']}",
                     f"--nprocs {job_specs['cpus']}",
-                    f"--mem_mb {job_specs['mem_per_cpu']*job_specs['cpus']}",
                     # monitor resources to design a heuristic for runtime/cpu/ram
                     "--resource-monitor",
                     layout.root,
@@ -421,7 +419,7 @@ def parse_args():
         "--container",
         action="store",
         default=FMRIPREP_DEFAULT_VERSION,
-        help="fmriprep singularity container (default: fmriprep-20.2.1lts)"
+        help="name of the fmriprep singularity container under the default container location (default: fmriprep-20.2.1lts)"
     )
     parser.add_argument(
         "--participant-label",
@@ -472,19 +470,19 @@ def parse_args():
         "--time",
         action="store",
         help="Time duration for the slurm job in slurm format (dd-)hh:mm:ss "
-        "(default: 24h structural, 12h functionnal)",
+        "(default: 24h structural, 24h functionnal)",
     )
     parser.add_argument(
         "--mem-per-cpu",
         action="store",
         help="upper bound memory limit for fMRIPrep processes"
-        "(default: 4096MB)",
+        "(default: 16384MB)",
     )
     parser.add_argument(
         "--cpus",
         action="store",
         help="maximum number of cpus for all processes"
-        "(default: 16)",
+        "(default: 1)",
     )
 
     return parser.parse_args()

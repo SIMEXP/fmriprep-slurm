@@ -7,10 +7,10 @@ It has also the advantage to prepare the dataset by checking the integrity, and 
 
 Originally from https://github.com/courtois-neuromod/ds_prep/blob/master/derivatives/fmriprep/fmriprep.py
 
-# Usage
+## Usage
 
-## Arguments
-
+### Arguments
+```
 positional arguments:  
   bids_path             BIDS folder to run fmriprep on.  
 
@@ -27,7 +27,7 @@ optional arguments:
   --email EMAIL         email for SLURM notifications
 
   --container CONTAINER
-                        fmriprep singularity container (default: fmriprep-20.2.1lts)
+                        name of the fmriprep singularity container under the default container location (default: fmriprep-20.2.1lts)
 
   --participant-label PARTICIPANT_LABEL [PARTICIPANT_LABEL ...]
                         a space delimited list of participant identifiers or a single identifier (the sub- prefix can be removed)
@@ -54,7 +54,7 @@ optional arguments:
                         upper bound memory limit for fMRIPrep processes(default: 4096MB)
                         
   --cpus CPUS           maximum number of cpus for all processes(default: 16) 
-
+```
 Templateflow valid identifiers can be found at https://github.com/templateflow/templateflow
 
 ## Default fmriprep command
@@ -69,7 +69,7 @@ By default, we use the following fMRIPrep arguments:
 
 `--notrack` since beluga compute nodes does not have access to internet, and reduce computation burden.
 
-`--skip_bids_validation` since it was already done inside `fmriprep-slum`.
+`--skip_bids_validation` since it was already done inside `fmriprep-slurm`.
 
 `--write-graph` for debugging.
 
