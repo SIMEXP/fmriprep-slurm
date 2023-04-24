@@ -94,7 +94,7 @@ def load_bidsignore(bids_root):
     return tuple()
 
 
-def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name, output_path):
+def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name, output_path, resource_monitor=False):
     fd.write("fmriprep_exitcode=$?\n")
     dataset_name = os.path.basename(bids_path)
     local_derivative_dir = os.path.join(
@@ -102,9 +102,10 @@ def write_job_footer(fd, jobname, bids_path, fmriprep_workdir, derivatives_name,
     fd.write(
         f"if [ $fmriprep_exitcode -ne 0 ] ; then rsync -rltv --info=progress2 {fmriprep_workdir} {output_path}/{jobname}.workdir ; fi \n"
     )
-    fd.write(
-        f"if [ $fmriprep_exitcode -eq 0 ] ; then rsync -rltv --info=progress2 {fmriprep_workdir}/fmriprep_wf/resource_monitor.json {output_path}/{jobname}_resource_monitor.json ; fi \n"
-    )
+    if resource_monitor:
+        fd.write(
+            f"if [ $fmriprep_exitcode -eq 0 ] ; then rsync -rltv --info=progress2 {fmriprep_workdir}/fmriprep_wf/resource_monitor.json {output_path}/{jobname}_resource_monitor.json ; fi \n"
+        )
     fd.write(
         f"if [ $fmriprep_exitcode -eq 0 ] ; then mkdir -p {output_path}/{derivatives_name} ; fi \n"
     )
@@ -158,6 +159,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_fmriprep_workdir = os.path.join(
         SINGULARITY_DATA_PATH, "fmriprep_work")
+    resource_monitor = True if "--resource-monitor" in args.fmriprep_args else False
 
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
@@ -190,7 +192,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         )
         fmriprep_workdir = os.path.join("$SLURM_TMPDIR", "fmriprep_work")
         write_job_footer(f, job_specs["jobname"], os.path.realpath(
-            args.bids_path), fmriprep_workdir, args.derivatives_name, args.output_path)
+            args.bids_path), fmriprep_workdir, args.derivatives_name, args.output_path, resource_monitor)
     return job_path
 
 
@@ -303,7 +305,7 @@ def write_func_job(layout, subject, session, args):
         FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
     sing_fmriprep_workdir = os.path.join(
         SINGULARITY_DATA_PATH, "fmriprep_work")
-
+    resource_monitor = True if "--resource-monitor" in args.fmriprep_args else False
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
         f.write(
@@ -338,7 +340,7 @@ def write_func_job(layout, subject, session, args):
         )
         fmriprep_workdir = os.path.join("$SLURM_TMPDIR", "fmriprep_work")
         write_job_footer(f, job_specs["jobname"], os.path.realpath(
-            args.bids_path), fmriprep_workdir, args.derivatives_name, args.output_path)
+            args.bids_path), fmriprep_workdir, args.derivatives_name, args.output_path, resource_monitor)
 
     return job_path, outputs_exist
 
