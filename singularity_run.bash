@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -- "${1%/}" "${@:2}" # trick to remove last path char from first arg (dataset path)
-PROJECT_PATH="/lustre03/project/6003287"
+PROJECT_PATH="/project/rrg-pbellec"
 DATASET_PATH=$1
 DATASET_FOLDER="${DATASET_PATH%/*}"
 DATASET_NAME=${DATASET_PATH##*/}
@@ -11,21 +11,21 @@ PYTHON_CMD="python /fmriprep-slurm/fmriprep-slurm/main.py "$@" --output-path "$O
 
 echo "###"
 echo "singularity_run.bash "$@
-export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
-module load singularity/3.8
+export APPTAINERENV_TEMPLATEFLOW_HOME=/templateflow
+module load apptainer/1.3.5
 
 echo "Creating templateflow directory in "$TEMPLATEFLOW_DIR
 mkdir -p $TEMPLATEFLOW_DIR
 
-echo "Running fmriprep-slurm inside singularity with the following command"
+echo "Running fmriprep-slurm inside apptainer with the following command"
 echo $PYTHON_CMD
 mkdir -p $OUTPUT_DIR
-echo $PYTHON_CMD | xargs singularity exec -B $PROJECT_PATH/fmriprep-slurm:/fmriprep-slurm \
+echo $PYTHON_CMD | xargs apptainer exec -B $PROJECT_PATH/fmriprep-slurm:/fmriprep-slurm \
   -B $DATASET_FOLDER:/DATA \
   -B /etc/pki:/etc/pki \
   -B $TEMPLATEFLOW_DIR:/templateflow \
   -B $OUTPUT_DIR:/OUTPUT \
-  $PROJECT_PATH/containers/fmriprep-20.2.1lts.sif
+  $PROJECT_PATH/containers/fmriprep-20.2.8.sif
 
 echo ""
 echo "Finished!"

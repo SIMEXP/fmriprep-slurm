@@ -19,23 +19,23 @@ SMRIPREP_REQ = {"cpus": 1, "mem_per_cpu": 16384,
 FMRIPREP_REQ = {"cpus": 1, "mem_per_cpu": 16384,
                 "time": "24:00:00", "omp_nthreads": 1}
 
-SINGULARITY_DATA_PATH = "/DATA"
-SINGULARITY_OUTPUT_PATH = "/OUTPUT"
-FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.7lts"
-FMRIPREP_DEFAULT_SINGULARITY_FOLDER = "/lustre03/project/6003287/containers"
+APPTAINER_DATA_PATH = "/DATA"
+APPTAINER_OUTPUT_PATH = "/OUTPUT"
+FMRIPREP_DEFAULT_VERSION = "fmriprep-20.2.8lts"
+FMRIPREP_DEFAULT_APPTAINER_FOLDER = "/project/rrg-pbellec/hwang1/containers"
 OUTPUT_SPACES_DEFAULT = ["MNI152NLin2009cAsym", "MNI152NLin6Asym"]
 SLURM_ACCOUNT_DEFAULT = "rrg-pbellec"
 PREPROC_DEFAULT = "all"
 TEMPLATEFLOW_HOME = os.path.join(os.path.join(
     os.environ["HOME"], ".cache"), "templateflow",)
-SINGULARITY_CMD_BASE = " ".join(
+APPTAINER_CMD_BASE = " ".join(
     [
-        "singularity run",
+        "apptainer run",
         "--cleanenv",
-        f"-B $SLURM_TMPDIR:{SINGULARITY_DATA_PATH}",
+        f"-B $SLURM_TMPDIR:{APPTAINER_DATA_PATH}",
         f"-B {TEMPLATEFLOW_HOME}:/templateflow",
         "-B /etc/pki:/etc/pki/",
-        "-B {original_output}:{SINGULARITY_OUTPUT_PATH}"
+        "-B {original_output}:{APPTAINER_OUTPUT_PATH}"
     ]
 )
 
@@ -52,14 +52,24 @@ slurm_preamble = """#!/bin/bash
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
 
-export SINGULARITYENV_FS_LICENSE=$HOME/.freesurfer.txt
-export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
+export APPTAINERENV_FS_LICENSE=$HOME/.freesurfer.txt
+export APPTAINERENV_TEMPLATEFLOW_HOME=/templateflow
 
-module load singularity/3.8
+module load apptainer/1.3.5
 
 #copying input dataset into local scratch space
 rsync -rltv --info=progress2 --exclude="sub*" --exclude="derivatives" {bids_root} $SLURM_TMPDIR
 rsync -rltv --info=progress2 {bids_root}/{participant} $SLURM_TMPDIR/{bids_basename}
+
+"""
+
+copy_anat = """
+mkdir -p $SLURM_TMPDIR/anat/derivatives/fmriprep
+mkdir -p $SLURM_TMPDIR/anat/derivatives/freesurfer
+
+rsync -rltv --info=progress2 {fmriprep_path}/{participant} $SLURM_TMPDIR/anat/derivatives/fmriprep
+rsync -rltv --info=progress2 {freesurfer_path}/{participant} $SLURM_TMPDIR/anat/derivatives/freesurfer
+rsync -rltv --info=progress2 {freesurfer_path}/fsaverage $SLURM_TMPDIR/anat/derivatives/freesurfer
 
 """
 
@@ -133,7 +143,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     if args.cpus:
         job_specs.update({"cpus": int(args.cpus), })
 
-    job_path = os.path.join(SINGULARITY_OUTPUT_PATH,
+    job_path = os.path.join(APPTAINER_OUTPUT_PATH,
                             SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
 
     derivatives_path = os.path.join(
@@ -144,7 +154,7 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
 
     # use json load/dump to copy filters (and validate json in the meantime)
     bids_filters_path = os.path.join(
-        SINGULARITY_OUTPUT_PATH,
+        APPTAINER_OUTPUT_PATH,
         "bids_filters.json")
     # checking if bids_filter path provided by user is valid, if not default bids_filter is used
     if args.bids_filter:
@@ -155,10 +165,10 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
     with open(bids_filters_path, "w") as f:
         json.dump(bids_filters, f)
 
-    fmriprep_singularity_path = os.path.join(
-        FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
+    fmriprep_APPTAINER_path = os.path.join(
+        FMRIPREP_DEFAULT_APPTAINER_FOLDER, args.container + ".sif")
     sing_fmriprep_workdir = os.path.join(
-        SINGULARITY_DATA_PATH, "fmriprep_work")
+        APPTAINER_DATA_PATH, "fmriprep_work")
     resource_monitor = True if "--resource-monitor" in args.fmriprep_args else False
 
     with open(job_path, "w") as f:
@@ -166,9 +176,9 @@ def write_fmriprep_job(layout, subject, args, anat_only=True):
         f.write(
             " ".join(
                 [
-                    SINGULARITY_CMD_BASE.format(
-                        original_output=args.output_path, SINGULARITY_OUTPUT_PATH=SINGULARITY_OUTPUT_PATH),
-                    fmriprep_singularity_path,
+                    APPTAINER_CMD_BASE.format(
+                        original_output=args.output_path, APPTAINER_OUTPUT_PATH=APPTAINER_OUTPUT_PATH),
+                    fmriprep_APPTAINER_path,
                     f"-w {sing_fmriprep_workdir}",
                     f"--participant-label {subject}",
                     "--anat-only" if anat_only else "",
@@ -200,10 +210,9 @@ def write_func_job(layout, subject, session, args):
     outputs_exist = False
     study = os.path.basename(layout.root)
     anat_path = os.path.join(
-        SINGULARITY_DATA_PATH,
+        APPTAINER_DATA_PATH,
         "anat",
         "derivatives",
-        args.derivatives_name,
     )
     derivatives_path = os.path.join(
         layout.root,
@@ -266,14 +275,17 @@ def write_func_job(layout, subject, session, args):
     # n_runs = len(bold_runs)
     # run_shapes = [run.get_image().shape for run in bold_runs]
     # run_lengths = [rs[-1] for rs in run_shapes]
-
+    bids_basename=os.path.basename(os.path.realpath(args.bids_path))
     job_specs = dict(
+        original_output=args.output_path,
         slurm_account=args.slurm_account,
         jobname=f"fmriprep_study-{study}_sub-{subject}_ses-{session}",
         email=args.email,
         bids_root=os.path.realpath(args.bids_path),
-        bids_basename=os.path.basename(os.path.realpath(args.bids_path)),
+        bids_basename=bids_basename,
         participant=f"sub-{subject}",
+        fmriprep_path=os.path.join(os.path.realpath(args.output_path), args.derivatives_name),
+        freesurfer_path=os.path.join(os.path.realpath(args.output_path), args.derivatives_name, "sourcedata", "freesurfer"),
     )
     job_specs.update(FMRIPREP_REQ)
     if args.time:
@@ -283,10 +295,10 @@ def write_func_job(layout, subject, session, args):
     if args.cpus:
         job_specs.update({"cpus": int(args.cpus), })
 
-    job_path = os.path.join(SINGULARITY_OUTPUT_PATH,
+    job_path = os.path.join(APPTAINER_OUTPUT_PATH,
                             SLURM_JOB_DIR, f"{job_specs['jobname']}.sh")
     bids_filters_path = os.path.join(
-        SINGULARITY_OUTPUT_PATH,
+        APPTAINER_OUTPUT_PATH,
         f"{job_specs['jobname']}_bids_filters.json"
     )
 
@@ -301,19 +313,20 @@ def write_func_job(layout, subject, session, args):
     with open(bids_filters_path, "w") as f:
         json.dump(bids_filters, f)
 
-    fmriprep_singularity_path = os.path.join(
-        FMRIPREP_DEFAULT_SINGULARITY_FOLDER, args.container + ".sif")
+    fmriprep_APPTAINER_path = os.path.join(
+        FMRIPREP_DEFAULT_APPTAINER_FOLDER, args.container + ".sif")
     sing_fmriprep_workdir = os.path.join(
-        SINGULARITY_DATA_PATH, "fmriprep_work")
+        APPTAINER_DATA_PATH, "fmriprep_work")
     resource_monitor = True if "--resource-monitor" in args.fmriprep_args else False
     with open(job_path, "w") as f:
         f.write(slurm_preamble.format(**job_specs))
+        f.write(copy_anat.format(**job_specs))
         f.write(
             " ".join(
                 [
-                    SINGULARITY_CMD_BASE.format(
-                        original_output=args.output_path, SINGULARITY_OUTPUT_PATH=SINGULARITY_OUTPUT_PATH),
-                    fmriprep_singularity_path,
+                    APPTAINER_CMD_BASE.format(
+                        original_output=args.output_path, APPTAINER_OUTPUT_PATH=APPTAINER_OUTPUT_PATH),
+                    fmriprep_APPTAINER_path,
                     f"-w {sing_fmriprep_workdir}",
                     f"--participant-label {subject}",
                     f"--anat-derivatives {anat_path}/fmriprep",
@@ -364,7 +377,6 @@ def run_fmriprep(layout, args):
 
         if args.preproc == "func":
             for session in sessions:
-                # TODO: check if derivative already exists for that subject
                 job_path, outputs_exist = write_func_job(
                     layout, subject, session, args)
                 if outputs_exist:
@@ -419,7 +431,7 @@ def parse_args():
         "--container",
         action="store",
         default=FMRIPREP_DEFAULT_VERSION,
-        help="name of the fmriprep singularity container under the default container location (default: fmriprep-20.2.1lts)"
+        help="name of the fmriprep APPTAINER container under the default container location (default: fmriprep-20.2.1lts)"
     )
     parser.add_argument(
         "--participant-label",
@@ -496,7 +508,7 @@ def main():
 
     print("\n# Loading pyBIDS database (it might take few hours for a big dataset)...\n")
     sing_bids_path = os.path.join(
-        SINGULARITY_DATA_PATH, os.path.basename(args.bids_path))
+        APPTAINER_DATA_PATH, os.path.basename(args.bids_path))
     layout = bids.BIDSLayout(
         sing_bids_path,
         reset_database=args.force_reindex,
@@ -509,7 +521,7 @@ def main():
         )
         + load_bidsignore(sing_bids_path),
     )
-    job_path = os.path.join(SINGULARITY_OUTPUT_PATH, SLURM_JOB_DIR)
+    job_path = os.path.join(APPTAINER_OUTPUT_PATH, SLURM_JOB_DIR)
     if not os.path.exists(job_path):
         os.mkdir(job_path)
 
